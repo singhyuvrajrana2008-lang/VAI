@@ -36,9 +36,11 @@ The MVP must not impersonate an official government alert service.
 - Automatically sending life-safety alerts without clear source, consent, validation and appropriate governance.
 
 ## 6. Core user journeys
-1. User opens dashboard and sees DEMO or LIVE status.
-2. User selects a catchment on the map.
-3. UI fetches current observation summaries, source health and available official warnings.
+1. User opens the app and sees DEMO or LIVE status; they may sign in/create an account or continue in explicitly labelled demo mode.
+2. An account user can sign in, register, request a password reset, complete recovery and sign out using Supabase Auth when configured.
+3. Private history, subscriptions and profile preferences are available only to the authenticated owner; public/demo dashboard access does not invent a user identity.
+4. User selects a catchment on the map.
+5. UI fetches current observation summaries, source health and available official warnings.
 4. User sees observed/forecast rainfall, timestamps, source freshness and missing-data notices.
 5. If permitted by data policy, the backend returns an experimental risk assessment with reason codes and input coverage.
 6. User opens evidence details to inspect data sources and calculation version.
@@ -80,11 +82,12 @@ The MVP must not impersonate an official government alert service.
 - Display the evidence and source records alongside any explanation.
 
 ### Accounts and persistence
-- Use Supabase Auth if enabled.
-- Use row-level security for user-specific settings/subscriptions.
-- Persist assessment snapshots, source metadata and alert history.
-- Keep private keys server-side.
-- Provide clear demo access without confusing demo records with live records.
+- Implement login, sign-up, sign-out, forgot-password and password-reset screens/flows using Supabase Auth when configured.
+- Use Supabase Auth for identity; never store raw passwords or invent a successful sign-in.
+- Use row-level security and server-side authorization for user-specific settings, subscriptions and history.
+- Persist assessment snapshots, source metadata and alert history where configured.
+- Keep service-role/private keys server-side; only the Supabase URL and browser-safe anon/publishable key may be used by the frontend.
+- Provide a clear Continue in Demo Mode path if Auth is not configured, and never imply demo mode has a real signed-in user or private persistence.
 
 ## 8. Non-functional requirements
 - Responsive desktop-first operations console, usable on laptop/tablet.
@@ -107,6 +110,7 @@ The MVP must not impersonate an official government alert service.
 - Model claims are limited to metrics from documented evaluation.
 - README distinguishes configured services from placeholders.
 - A reviewer can trace each displayed value to a provider, fixture or computation.
+- Login, sign-up, password recovery and sign-out work with Supabase Auth when configured; otherwise the app clearly falls back to demo-only access without fake authentication.
 
 ## 10. Open decisions
 - Pilot catchment and verified polygon.
