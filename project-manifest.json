@@ -2,7 +2,7 @@
   "name": "RidgeWatch",
   "repository": "singhyuvrajrana2008-lang/VAI",
   "project_type": "catchment-level flash-flood risk decision-support prototype",
-  "status": "demo-mvp-implemented-local-only",
+  "status": "demo-mvp-implemented-gap-closure-local-only",
   "default_branch": "main",
   "source_of_truth": [
     "AGENTS.md",
@@ -36,8 +36,12 @@
     "deterministic_rainfall_accumulation_baseline": true,
     "assessment_evidence_report": true,
     "source_health_matrix": true,
+    "public_landing_page": true,
+    "assessments_list": "process memory only",
     "supabase_auth_pages": "implemented, unverified without a Supabase project",
-    "supabase_persistence": false,
+    "supabase_persistence": "implemented_with_mocked_tests_unverified_live",
+    "authenticated_history": "implemented_with_mocked_tests_unverified_live",
+    "subscriptions": false,
     "external_data_connectors": 0,
     "validated_catchment_geometry": false,
     "trained_or_evaluated_model": false

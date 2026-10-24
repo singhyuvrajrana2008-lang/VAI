@@ -118,8 +118,8 @@ Demo timestamps are constants, never "now", so fixtures cannot drift into lookin
 
 ## Verification limits
 
-- No real browser could run: Chromium's shared libraries are absent and root access is unavailable for installation. Instead, 8 jsdom integration tests mount the actual pages (React Query + router + pages) against mocked API responses and assert the demo labels, assessment click path, warning-unavailable semantics, evidence traceability, auth configuration state and 404 routing. Pixel layout, CSS rendering, keyboard traversal and live Supabase sign-in remain unverified.
-- Supabase Auth was implemented against the documented client library but **not executed against a live project**. Do not call it verified.
+- No real browser could run: Chromium's shared libraries are absent and root access is unavailable for installation. Instead, 10 jsdom integration tests mount the actual pages (React Query + router + pages) against mocked API responses and assert the landing entry points, demo labels, assessment click path, assessments list scope, warning-unavailable semantics, evidence traceability, auth configuration state and 404 routing. Pixel layout, CSS rendering, keyboard traversal and live Supabase sign-in remain unverified.
+- Supabase Auth and persistence were implemented against documented endpoints but **not executed against a live project**. The gateway is tested only with mocked HTTP. Do not call it verified.
 - No deployment was performed.
 - `indiawris.gov.in` failure may be a network restriction of this environment rather than the service being down.
 

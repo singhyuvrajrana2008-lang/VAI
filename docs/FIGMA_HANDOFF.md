@@ -33,7 +33,7 @@ Google Maps is loaded only when `VITE_GOOGLE_MAPS_API_KEY` is present. Catchment
 
 ## Implemented frontend (24 October 2026)
 
-All routes below exist and render real states: overview, catchments, catchment detail, rainfall, warnings, assessments, assessment evidence, data health, methodology, history, settings, login, signup, forgot password, reset password, auth callback and a not-found page.
+All routes below exist and render real states: public landing, overview, catchments, catchment detail, rainfall, warnings, assessments list, assessment request, assessment evidence, data health, methodology, history, settings, login, signup, forgot password, reset password, auth callback and a not-found page.
 
 - Auth is wired to Supabase only when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` exist. Without them the auth pages show a configuration state and the demo dashboard stays available. There is no simulated login.
 - Without `VITE_GOOGLE_MAPS_API_KEY`, the map region renders a clearly labelled **schematic** projection of the API geometry ("not a basemap"), never a fabricated basemap or boundary.

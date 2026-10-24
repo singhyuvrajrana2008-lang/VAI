@@ -7,13 +7,14 @@
 - **Live external data sources wired:** 0
 - **Verified catchment geometry:** none (demo rectangles only, labelled `DEMO SYNTHETIC`)
 - **Trained / evaluated model:** none. No precision, recall, lead time or calibration is claimed.
-- **Durable persistence / authenticated history:** not wired (migration is prepared)
+- **Durable persistence / authenticated history:** implemented and unit-tested against mocked Supabase HTTP, **not verified against a live project**
+- **Public entry page:** working at `/`; console at `/overview`
 
 Read `docs/DATA_FEASIBILITY_REPORT.md` before treating any provider as usable.
 
 ## Branch and integration status
 
-This work lives on `feat/ridgewatch-full-mvp`, branched from `main`. It **integrates the content of the two open foundation PRs** — #4 (`feat/backend-foundation`) and #5 (`feat/ridgewatch-frontend`) — rather than duplicating them. Review and merge this branch first; merging #4 or #5 afterwards would conflict on the same paths. No PR exists for this branch yet (created and pushed from a cloud workspace without PR permissions).
+The original integrated work lives on `feat/ridgewatch-full-mvp`, branched from `main`, and **integrates the content of the two open foundation PRs** — #4 (`feat/backend-foundation`) and #5 (`feat/ridgewatch-frontend`). This gap-closure pass continues on `feat/ridgewatch-gap-closure`, which contains that branch plus the changes below. Review and merge the gap-closure branch first; merging #4 or #5 afterwards would conflict on the same paths. No PR exists for these branches yet (created and pushed from a cloud workspace without PR permissions).
 
 ## What actually works
 
@@ -24,13 +25,16 @@ This work lives on `feat/ridgewatch-full-mvp`, branched from `main`. It **integr
 | Catchments list, search, detail with provenance | Working |
 | Rainfall page: observed vs forecast separation, chart, provenance table | Working (demo records) |
 | Official warnings page: chronological log, expired validity, unavailable ≠ all-clear | Working (demo fixtures; no authority feed) |
+| Public entry page (Explore Demo / Sign in / Create account) | Working at `/` |
 | Experimental assessment + evidence report with reason codes | Working (transparent baseline) |
+| Assessments list with explicit process-memory scope | Working at `/assessments` in demo mode; request form at `/assessments/new`; disabled (403) in live mode |
 | Data health matrix + configuration presence | Working |
 | Methodology / evaluation status | Working, explicitly "not evaluated" |
 | Login, signup, forgot/reset password, callback, sign-out | Implemented against Supabase Auth, **unverified without a Supabase project** |
-| History / subscriptions | Honest unavailable state; no fake saves |
+| Authenticated history | Implemented with Supabase token verification and owner-scoped reads; returns 401/503 honestly. **Unverified live.** |
+| Subscriptions | Not implemented — no fake save controls |
 | Google Maps basemap | Optional; labelled schematic fallback without a key |
-| Supabase persistence | **Not wired.** Migration + RLS exist; API reports memory-only storage |
+| Supabase persistence | Gateway implemented (write + read + token verification) with mocked tests; **not verified against a live project**. Migration + RLS prepared. |
 
 ## Repository layout
 
@@ -39,7 +43,9 @@ backend/                 FastAPI app, schemas, baseline, provider abstraction, p
 frontend/                React + TypeScript + Vite, zod-validated API client, Vitest
 supabase/migrations/     Initial schema, RLS policies (no duplicate migration added)
 scripts/                 check_env.py (configuration doctor), dev.sh, dev.ps1
-docs/                    PRD, architecture, data sources, feasibility, evaluation
+docs/                    PRD, architecture, data sources, feasibility, evaluation, gap audit
+docs/GAP_AUDIT.md        This pass's gaps, fixes and remaining blockers
+docs/FIGMA_INTEGRATION.md Figma export status (not accessible)
 .github/workflows/ci.yml Backend tests + frontend typecheck/tests/build
 ```
 
@@ -124,7 +130,7 @@ cp backend/.env.example backend/.env
 | `CORS_ORIGINS` | backend `.env` | no | Comma-separated allowed browser origins | localhost / 127.0.0.1 on 3000 and 5173 |
 | `SUPABASE_URL` | backend `.env` | no | Health reports auth/persistence as configured | Reports unavailable |
 | `SUPABASE_ANON_KEY` | backend `.env` | no | Auth presence indicator | — |
-| `SUPABASE_SERVICE_ROLE_KEY` | backend `.env` | no | Persistence presence indicator only | — |
+| `SUPABASE_SERVICE_ROLE_KEY` | backend `.env` | no | Enables server-side persistence and history after token verification (unverified live) | Persistence reported unavailable; history 503 |
 
 `SUPABASE_SERVICE_ROLE_KEY` is a **secret** and is never sent to the browser, never logged and never returned by an endpoint. There is no `VITE_` variant of it; the doctor script warns if one appears.
 
@@ -132,14 +138,16 @@ A configured key does not prove a working provider. API enablement, key restrict
 
 ## Demo walkthrough (no keys)
 
-1. **Overview** — two demo catchments. Sector A ends with a heavy 3-hour rainfall window, sector B with light rainfall. Both display `DEMO` strips, synthetic-geometry labels and "not a validated watershed boundary".
-2. **Run experimental assessment** — Sector A returns `high`, Sector B `low`/`moderate`; the score stays `null` (no numeric index exists), reason codes name the threshold and freshness rules, and coverage shows supporting inputs that are absent.
-3. **Open evidence report** — every input, provider, timestamp, reason code, attached warning record and disclaimer is listed.
-4. **Rainfall** — observed bars and forecast bars are separated, axes are labelled `mm/h` and UTC, missing hours are drawn as gaps rather than zeros, and the underlying records are in a table.
-5. **Official warnings** — the log states plainly that no provider is configured and that the records are synthetic, with validity windows marked expired or current.
-6. **Data health** — rainfall/forecast/warnings are `DEMO`; river stage, soil moisture, terrain and persistence are `UNAVAILABLE`; no row claims verification.
-7. **Methodology** — the 3-hour thresholds are shown with "developer-set, unevaluated"; evaluation metrics are explicitly absent.
-8. **Login / history** — without Supabase the auth page explains what is missing and offers the demo dashboard; no fake user is created.
+1. **Public entry page** (`/`) — Explore Demo, Sign in and Create account, plus the honest prototype scope (0 verified providers, no validated catchments, not evaluated).
+2. **Overview** (`/overview`) — two demo catchments. Sector A ends with a heavy 3-hour rainfall window, sector B with light rainfall. Both display `DEMO` strips, synthetic-geometry labels and "not a validated watershed boundary".
+3. **Run experimental assessment** — Sector A returns `high`, Sector B `low`/`moderate`; the score stays `null` (no numeric index exists), reason codes name the threshold and freshness rules, and coverage shows supporting inputs that are absent.
+4. **Assessments list** (`/assessments`) — shows records issued by this API process, labelled as not private history, with a link to request a new one at `/assessments/new`.
+5. **Open evidence report** — every input, provider, timestamp, reason code, attached warning record and disclaimer is listed.
+6. **Rainfall** — observed bars and forecast bars are separated, axes are labelled `mm/h` and UTC, missing hours are drawn as gaps rather than zeros, and the underlying records are in a table.
+7. **Official warnings** — the log states plainly that no provider is configured and that the records are synthetic, with validity windows marked expired or current.
+8. **Data health** — rainfall/forecast/warnings are `DEMO`; river stage, soil moisture, terrain and persistence are `UNAVAILABLE`; no row claims verification.
+9. **Methodology** — the 3-hour thresholds are shown with "developer-set, unevaluated"; evaluation metrics are explicitly absent.
+10. **Login / history** — without Supabase the auth page explains what is missing and offers the demo dashboard; no fake user is created.
 
 Switch the API to `RIDGEWATCH_MODE=live` and reload: the registry becomes empty and every source row reads `unavailable`. That is intentional — live mode never serves fixtures.
 
@@ -165,7 +173,7 @@ python -m pytest -q
 python -m compileall -q app tests
 ```
 
-Result: **33 passed**, compile check passed. Covers demo labelling, live-mode emptiness, 404/422/413/429 handling, request IDs, CORS allow/deny, warning-unavailable semantics, missing/stale/gap rainfall, provider timeout and exception sanitisation, bounded stores.
+Result: **51 passed**, compile check passed. Covers demo labelling, live-mode emptiness, 404/422/413/429 handling, request IDs, CORS allow/deny, warning-unavailable semantics, missing/stale/gap rainfall, provider timeout and exception sanitisation, bounded stores, assessment lists, bearer-token history, owner scoping, rejected tokens, persistence write/read failures and Supabase gateway HTTP behaviour.
 
 Frontend (from `frontend/`, Node 24.21.0):
 
@@ -175,7 +183,7 @@ npm test
 npm run build
 ```
 
-Result: typecheck passed, **26 tests passed** (formatting, redirect safety, GeoJSON projection, API error/schema handling, plus 8 jsdom rendering tests that mount the overview, warnings, data-health, evidence, auth and not-found pages against mocked API responses and click through an assessment), production build succeeded.
+Result: typecheck passed, **31 tests passed** (formatting, redirect safety, GeoJSON projection, API error/schema handling and bearer-token requests, plus 10 jsdom rendering tests that mount the landing page, overview, assessments list, warnings, data-health, evidence, auth and not-found pages against mocked API responses and click through an assessment), production build succeeded.
 
 Manual HTTP verification against the running dev servers: health, catchments, observations/proxy, assessment bands, warnings, sources, CORS preflight, unknown-host rejection (403), SPA deep routes (200). A real browser run was **not possible** — Chromium requires system libraries that cannot be installed without root in this environment — so pixel layout, keyboard traversal and live Supabase sign-in remain unverified (see `docs/DATA_FEASIBILITY_REPORT.md`).
 
@@ -190,9 +198,12 @@ The browser only needs the project URL and anon/publishable key. The API needs t
    - Redirect URLs: `http://localhost:3000/auth/callback`, `http://localhost:3000/reset-password`
 4. Authentication → Providers → Email: enable it. If "Confirm email" is on, sign-up shows the pending-verification state until the link is used. Configure your own SMTP for reliable delivery.
 5. Fill the frontend and backend env files, restart both processes, then verify with `python scripts/check_env.py --check-api`.
-6. Two-user isolation check (manual, required before trusting private data): create users A and B, confirm each can read only their own `profiles`, `assessments` and `catchment_subscriptions` rows and that anon access returns nothing.
+6. Sign in on `/login`, then request an assessment while signed in. A persisted record returns `"persisted": true` and `"persistence": "supabase"`; `/history` should then list it.
+7. Two-user isolation check (manual, required before trusting private data): create users A and B, confirm each can read only their own `profiles`, `assessments` and `catchment_subscriptions` rows, and that anon access returns nothing.
 
-**Not yet done:** the API does not write assessments to Supabase and `/api/v1/history` returns `503 persistence_unavailable`. The frontend shows that limitation instead of pretending history was saved.
+**Persistence status:** the gateway (`backend/app/services/supabase.py`) verifies the caller's token through Supabase Auth, writes the assessment with the service-role key, and reads history scoped to the verified user id. It is covered by mocked HTTP tests only. No live project exists in this environment, so treat it as **implemented but unverified**: if configuration is missing it returns 503, if a token is missing or invalid it returns 401, and a failed write returns the assessment with `persisted: false` rather than a false success. Subscriptions remain unimplemented.
+
+Do not describe the Supabase path as working until you have completed steps 6–7 against your own project and recorded the result.
 
 ## Troubleshooting
 
@@ -202,6 +213,9 @@ The browser only needs the project URL and anon/publishable key. The API needs t
 | Catchment list empty | `RIDGEWATCH_MODE=live` with no verified catchment. Use demo mode for fixtures |
 | Map shows a schematic, not a basemap | `VITE_GOOGLE_MAPS_API_KEY` missing, invalid, or the key is not enabled for Maps JavaScript API / this origin |
 | Auth pages say "not configured" | `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` missing at build time; restart Vite after editing `.env.local` |
+| History returns 401 | Session token missing/expired, or the API cannot verify it against `SUPABASE_URL`; sign out and back in |
+| History returns 503 | Supabase persistence not configured, or the service refused the request; nothing was inferred from the failure |
+| Assessments list is empty after restart | Expected: process-memory records are cleared when the API restarts. Persisted history requires sign-in and verified persistence |
 | History returns 503 | Expected: persistence is not wired |
 | Google Maps 403 | Restrict the browser key to your origin; enable Maps JavaScript API and billing |
 

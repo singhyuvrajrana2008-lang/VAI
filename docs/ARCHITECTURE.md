@@ -6,7 +6,7 @@
 - **API backend:** Python 3.12 + FastAPI. Owns provider access, validation, freshness eligibility, the deterministic baseline, provenance and server-side secrets.
 - **Data pipeline:** not implemented. No scheduled fetcher runs; no observation table is populated.
 - **Risk engine:** deterministic rainfall-accumulation baseline v0.1. No trained model exists.
-- **Supabase:** schema and RLS policies are prepared in `supabase/migrations/0001_initial_schema.sql`. The API does **not** read or write it in this build.
+- **Supabase:** schema and RLS are in `supabase/migrations/0001_initial_schema.sql`. A server-side gateway (`app/services/supabase.py`) verifies caller tokens and reads/writes assessments; it is **implemented but unverified against a live project**.
 - **Google Maps:** optional basemap/interaction only. Never a hydrology source.
 - **LLM:** not integrated. No AI explanation path exists.
 
@@ -37,11 +37,12 @@
 | GET | `/catchments/{id}/observations?from=&to=` | `observed` and `forecast` arrays are separate; `items` is the union; `units`, `source_state`, `is_demo`, explanatory `message`. Invalid range → 422. |
 | GET | `/catchments/{id}/warnings` | Chronological records with provider, severity, issue/valid times, geography, optional `source_url`, `provider_configured` and a message that never implies an all-clear. |
 | POST | `/catchments/{id}/assessments` | Body `{}` or `{"requested_at": "<ISO-8601 with timezone>"}`. Returns band, null score, coverage, inputs, reason codes, attached warnings, storage mode and disclaimer. Rate limited; oversized body → 413. |
+| GET | `/assessments` | Assessments issued by this API process, newest first, with `scope=api_process_not_user_owned` and a warning that they are not private history. Query `limit` 1–100. |
 | GET | `/assessments/{id}` | In-process retrieval; 404 with an explanation once the API restarts. |
 | GET | `/sources/status` | Capability matrix: provider, configured, state, verification, timestamps, units, flags, message. Demo rows are distinct from unavailable rows. |
-| GET | `/history` | 503 `persistence_unavailable`. Deliberately not faked. |
+| GET | `/history` | Owner-scoped history. Returns 503 when persistence is unconfigured, 401 without a valid bearer token, 200 with the caller's own assessments. |
 
-Not implemented: subscriptions, saved history, ingestion, provider connectors. No endpoint accepts a client-supplied user ID.
+Not implemented: subscriptions, ingestion, provider connectors. No endpoint accepts a client-supplied user ID.
 
 ## 5. Assessment contract (implemented)
 
@@ -99,6 +100,8 @@ Timestamps are UTC ISO-8601 internally; the UI labels its display timezone (UTC)
 
 ## 7. Frontend architecture
 
+Routes: `/` public entry page; `/overview` map console; `/catchments`, `/catchments/:id`, `/rainfall`, `/warnings`, `/assessments`, `/assessments/new`, `/assessments/:id`, `/data-health`, `/methodology`, `/history`, `/settings`; auth routes `/login`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback`; `*` not-found. The console uses a pathless layout route so its paths stay top-level.
+
 - `lib/api.ts` — single typed client: base URL, 12 s timeout via `AbortController`, safe error normalisation (status, code, request id), zod validation of every response.
 - `lib/schemas.ts` — runtime contract mirroring the Pydantic schemas.
 - `lib/auth.tsx` — Supabase client created only when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` exist; session restore, auth-state subscription with cleanup, sign-in/up/out, recovery, password update. No fake session.
@@ -110,11 +113,13 @@ Timestamps are UTC ISO-8601 internally; the UI labels its display timezone (UTC)
 ## 8. Authentication and data access boundary
 
 - Supabase Auth is the only identity provider. Browser configuration is limited to `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
-- The service-role key is server-only and is not used by any endpoint yet.
+- The service-role key is server-only. It is used only after the caller's access token has been verified through Supabase Auth (`GET /auth/v1/user`). The resulting user id — never a request body or query value — scopes every read and write.
+- Persistence writes the full assessment contract into typed columns plus `metadata.assessment`, so history reconstructs exactly what was issued. `catchment_id` is null for slug-based demo catchments; the slug remains in metadata.
 - Public demo browsing requires no account. Account pages (`/history`) require a verified session via `RequireAuth`; a signed-out visitor is redirected to `/login` with a validated internal `from` path, never an external URL.
+- A missing token on `/history` is 401; an unconfigured persistence layer is 503; neither falls back to a shared or anonymous view.
 - Without Supabase configuration, account routes render a configuration state instead of redirecting, preventing loops.
 - RLS policies in the migration scope `profiles`, `assessments` and `catchment_subscriptions` to `auth.uid()`. There are no public write policies on regional data tables.
-- **Not implemented:** backend token verification, persistence, subscriptions. `/history` returns 503 rather than pretending.
+- **Not implemented:** subscriptions and ingestion. Persistence/token verification are implemented but not verified against a live Supabase project.
 
 ## 9. Failure handling (implemented)
 
@@ -142,7 +147,7 @@ Timestamps are UTC ISO-8601 internally; the UI labels its display timezone (UTC)
 ## 11. Known architectural gaps
 
 1. No connector, cache, retry/backoff implementation for external data (only the provider abstraction and timeout envelope).
-2. No Supabase persistence or token verification; the migration is unapplied in any live project.
+2. Supabase persistence and token verification are implemented but unverified; the migration is unapplied in any live project and no two-user RLS test has run.
 3. No validated geometry, terrain features or ingestion pipeline.
 4. No evaluation harness, because there are no labels.
 5. No deployment configuration has been executed.
