@@ -18,6 +18,8 @@ Build RidgeWatch, a traceable catchment-level flash-flood risk decision-support 
 10. Keep changes scoped to the assigned workstream. Avoid broad rewrites and preserve shared API/database contracts.
 11. Do not claim a test, live data request or model evaluation passed unless it was actually executed and evidence is recorded.
 12. Check licences, attribution, quotas, terms and access/authentication requirements before relying on a data provider.
+13. Do not begin supervised model training until the historical-event labels, prediction horizon, feature cut-off and evaluation plan have been verified.
+14. Satellite products with processing latency must not be represented as real-time observations if their data would not have been available at prediction time.
 
 ## Source of truth
 - Product requirements: docs/PRD.md
@@ -28,6 +30,13 @@ Build RidgeWatch, a traceable catchment-level flash-flood risk decision-support 
 - Database schema: supabase/migrations/0001_initial_schema.sql
 
 If implementation conflicts with these documents, explain the conflict and propose a small explicit change. Do not silently redefine the contract.
+
+## Current ownership
+- Figma/Figma Make owns visual design and frontend handoff.
+- Manus owns backend, integrations, data-source feasibility, data engineering, GIS feature preparation, baseline/model feasibility and ML evaluation. The work previously assigned to Claude is transferred to Manus.
+- ChatGPT provides independent architecture, safety and integration review.
+- Human project lead owns priorities, pilot-catchment selection, approvals and acceptance.
+- Do not start a separate Claude workstream unless the project lead explicitly reassigns one.
 
 ## Git workflow
 - Repository: singhyuvrajrana2008-lang/VAI
