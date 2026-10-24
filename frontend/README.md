@@ -51,7 +51,7 @@ npm test
 npm run build
 ```
 
-Last verified (Node 24.21.0): typecheck passed, **31 tests passed** (21 unit + 10 jsdom page-rendering tests), production build succeeded. The rendering tests mock the API, mount the real pages with React Query and the router, and exercise the landing entry points, assessment click path, assessments list scope warning, warning semantics, auth configuration state and 404 routing. Bearer-token forwarding for assessments and history is unit-tested.
+Last verified (Node 24.21.0): typecheck passed, **31 tests passed** (21 unit + 10 jsdom page-rendering tests), production build succeeded. Real-browser check: `node scripts/browser_qa.mjs` from the repo root (dev server on :3000, `npx playwright install chromium`) walks 17 routes at 1440 px and 360 px, verifies titles, headings, phone-width scrolling, keyboard focus, the assessment flow and API outage/500 error states — last run reported 0 defects. The rendering tests mock the API, mount the real pages with React Query and the router, and exercise the landing entry points, assessment click path, assessments list scope warning, warning semantics, auth configuration state and 404 routing. Bearer-token forwarding for assessments and history is unit-tested.
 
 ## Data honesty rules encoded in the UI
 

@@ -173,7 +173,7 @@ python -m pytest -q
 python -m compileall -q app tests
 ```
 
-Result: **51 passed**, compile check passed. Covers demo labelling, live-mode emptiness, 404/422/413/429 handling, request IDs, CORS allow/deny, warning-unavailable semantics, missing/stale/gap rainfall, provider timeout and exception sanitisation, bounded stores, assessment lists, bearer-token history, owner scoping, rejected tokens, persistence write/read failures and Supabase gateway HTTP behaviour.
+Result: **54 passed**, compile check passed. Covers demo labelling, live-mode emptiness, 404/422/413/429 handling, request IDs, CORS allow/deny, warning-unavailable semantics, missing/stale/gap rainfall, provider timeout and exception sanitisation, bounded stores, assessment lists, bearer-token history, owner scoping, rejected tokens, persistence write/read failures, Supabase gateway HTTP behaviour and the two-user RLS check script (pass, fail and skip paths against a fake Supabase).
 
 Frontend (from `frontend/`, Node 24.21.0):
 
@@ -185,7 +185,19 @@ npm run build
 
 Result: typecheck passed, **31 tests passed** (formatting, redirect safety, GeoJSON projection, API error/schema handling and bearer-token requests, plus 10 jsdom rendering tests that mount the landing page, overview, assessments list, warnings, data-health, evidence, auth and not-found pages against mocked API responses and click through an assessment), production build succeeded.
 
-Manual HTTP verification against the running dev servers: health, catchments, observations/proxy, assessment bands, warnings, sources, CORS preflight, unknown-host rejection (403), SPA deep routes (200). A real browser run was **not possible** — Chromium requires system libraries that cannot be installed without root in this environment — so pixel layout, keyboard traversal and live Supabase sign-in remain unverified (see `docs/DATA_FEASIBILITY_REPORT.md`).
+Manual HTTP verification against the running dev servers: health, catchments, observations/proxy, assessment bands, warnings, sources, CORS preflight, unknown-host rejection (403), SPA deep routes (200).
+
+Headless browser QA (real Chromium, run against the dev server):
+
+```bash
+npm i --no-save playwright               # once, from the repository root
+npx playwright install chromium          # once
+node scripts/browser_qa.mjs             # requires the dev server on :3000
+```
+
+Result: **0 defects** across 17 routes — HTTP status, document title, `<h1>` presence, genuine horizontal-scrollability at 360 px (not `scrollWidth`, which table scroll containers inflate), a visible keyboard focus indicator on the first Tab, an end-to-end assessment request followed through to the evidence report, and simulated API outage (aborted requests) and API 500, both of which must render a recoverable error panel with a retry. Screenshots and `report.json` are written to `artifacts/qa/` (git-ignored).
+
+In this sandbox Chromium's shared libraries were missing and root is unavailable, so the needed `.deb` libraries were downloaded and extracted into the home directory and Chromium was launched with `LD_LIBRARY_PATH`/`FONTCONFIG_FILE` pointed at them; on a normal development machine `npx playwright install chromium` alone is enough. Still unverified by automation: live Supabase sign-in and paid-provider flows (no credentials).
 
 ## Supabase setup (when you are ready)
 
@@ -199,7 +211,7 @@ The browser only needs the project URL and anon/publishable key. The API needs t
 4. Authentication → Providers → Email: enable it. If "Confirm email" is on, sign-up shows the pending-verification state until the link is used. Configure your own SMTP for reliable delivery.
 5. Fill the frontend and backend env files, restart both processes, then verify with `python scripts/check_env.py --check-api`.
 6. Sign in on `/login`, then request an assessment while signed in. A persisted record returns `"persisted": true` and `"persistence": "supabase"`; `/history` should then list it.
-7. Two-user isolation check (manual, required before trusting private data): create users A and B, confirm each can read only their own `profiles`, `assessments` and `catchment_subscriptions` rows, and that anon access returns nothing.
+7. Two-user isolation check (required before trusting private data): run `python3 scripts/rls_isolation_check.py`. It creates two temporary users, writes a row as user A, proves B cannot read or forge A's row and that anon reads nothing, deletes everything it created, and prints PASS/FAIL. It skips honestly when `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are absent (`--require` makes that an error). Do the same by hand for `profiles` and `catchment_subscriptions` if you rely on those policies.
 
 **Persistence status:** the gateway (`backend/app/services/supabase.py`) verifies the caller's token through Supabase Auth, writes the assessment with the service-role key, and reads history scoped to the verified user id. It is covered by mocked HTTP tests only. No live project exists in this environment, so treat it as **implemented but unverified**: if configuration is missing it returns 503, if a token is missing or invalid it returns 401, and a failed write returns the assessment with `persisted: false` rather than a false success. Subscriptions remain unimplemented.
 
@@ -212,6 +224,7 @@ Do not describe the Supabase path as working until you have completed steps 6–
 | "API could not be reached" | Backend not running, wrong `VITE_API_BASE_URL` (default expects the dev proxy), or port mismatch |
 | Catchment list empty | `RIDGEWATCH_MODE=live` with no verified catchment. Use demo mode for fixtures |
 | Map shows a schematic, not a basemap | `VITE_GOOGLE_MAPS_API_KEY` missing, invalid, or the key is not enabled for Maps JavaScript API / this origin |
+| `browser_qa.mjs` exits with `libXrender.so.1 … not found` | Minimal container: install Chromium's libraries (or extract the `.deb` files into a home directory and set `LD_LIBRARY_PATH`) and provide a `FONTCONFIG_FILE` — without `fonts.conf` Chromium crashes with `SkFontMgr_FontConfigInterface … Not implemented` |
 | Auth pages say "not configured" | `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` missing at build time; restart Vite after editing `.env.local` |
 | History returns 401 | Session token missing/expired, or the API cannot verify it against `SUPABASE_URL`; sign out and back in |
 | History returns 503 | Supabase persistence not configured, or the service refused the request; nothing was inferred from the failure |

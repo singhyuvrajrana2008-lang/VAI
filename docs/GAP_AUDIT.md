@@ -1,7 +1,7 @@
 # RidgeWatch Gap Audit
 
 Audit date: 24 October 2026. Branch: `feat/ridgewatch-gap-closure` (from `feat/ridgewatch-full-mvp`).
-Baseline before changes: backend **33 passed**, frontend typecheck/build passed, **26 tests passed**. After this pass: backend **51 passed**, frontend **31 passed**, typecheck and production build pass.
+Baseline before changes: backend **33 passed**, frontend typecheck/build passed, **26 tests passed**. After this pass: backend **54 passed**, frontend **31 passed**, typecheck and production build pass, headless-browser QA **0 defects**.
 
 Legend: **working** (verified locally), **partial** (implemented but a dependency is unverified), **blocked** (external access/credentials), **missing** (not built).
 
@@ -19,7 +19,7 @@ Legend: **working** (verified locally), **partial** (implemented but a dependenc
 | Data health | working | Matrix renders demo/unavailable | Updated persistence wording for implemented-but-unverified | No live connectors |
 | Methodology | working | "Not evaluated" is explicit | Kept | No evaluation possible without labels |
 | History | blocked (503) | Endpoint deliberately refused | Implemented owner-scoped history via verified Supabase token + PostgREST, with 401/503 handling; UI sends bearer token and handles expiry | **Not verified against a live Supabase project** |
-| Persistence | missing | No database code | Added isolated `SupabaseGateway` (token verification, write, owner-scoped read), typed rows, metadata round-trip, sanitised failures, mocked HTTP tests | Unverified live; no RLS two-user test executed |
+| Persistence | missing | No database code | Added isolated `SupabaseGateway` (token verification, write, owner-scoped read), typed rows, metadata round-trip, sanitised failures, mocked HTTP tests | Unverified live; two-user RLS check is scripted (`scripts/rls_isolation_check.py`) but has not run against a real project |
 | Subscriptions | missing | Not implemented | **Not added** — would require unverified writes and a working persistence path | Blocked on verified persistence |
 | Auth pages | partial | Login/signup/recovery/callback/demo fallback existed | Added page titles, `/overview` post-auth fallback, 401 session-expired state on history | Live Supabase flow not executed |
 | Safe redirects | working | Internal-only validation + tests | Default fallback changed to `/overview`; tests updated | None |
@@ -28,7 +28,7 @@ Legend: **working** (verified locally), **partial** (implemented but a dependenc
 | Data connectors | blocked | 0 connectors; docs unreachable without credentials | Updated feasibility evidence; no invented endpoints | Provider access/keys required |
 | Evaluation / ML | blocked | No event labels | No model added; methodology states "not evaluated" | Historical labels required |
 | CI | working | Workflow runs backend + frontend checks | Still passes; test counts updated | Not executed on GitHub from this environment |
-| Browser QA | blocked | Chromium system libraries unavailable; no root | jsdom rendering tests cover real page mounts and interactions | Pixel/keyboard/visual checks still manual |
+| Browser QA | blocked | Chromium system libraries unavailable; no root | **Unblocked:** Playwright Chromium installed; missing `.deb` libraries and fontconfig extracted into the home directory; `scripts/browser_qa.mjs` walks 17 routes, both widths, keyboard focus, the assessment flow and simulated API outage/500 | **0 defects** after fixes; live Supabase sign-in still not browser-tested (no credentials) |
 | Secret hygiene | working | Environment scan clean; build contains only env-var names in UI copy | Re-scanned after changes | None |
 
 ## Defects found and fixed during this pass
@@ -40,6 +40,12 @@ Legend: **working** (verified locally), **partial** (implemented but a dependenc
 5. History previously could be fetched without a token; the implemented endpoint now returns 401 without a verified bearer token and never accepts a user id from the client.
 6. Signed-in users were not sending their token when requesting an assessment, so persistence could never trigger. The console now forwards the session token, and a missing/expired token still yields an honest 401 rather than an anonymous success.
 7. The process-memory assessment list would have exposed live-mode records to every caller; it now returns 403 outside demo mode.
+
+### Found by headless-browser QA in the continuation pass
+
+8. `/methodology` overflowed at 360 px: the threshold table's 480 px `min-width` widened the single-column grid track, clipping page content. Fixed with `minmax(0, 1fr)` plus `min-width: 0` on the grid children; the table still scrolls inside `.table-scroll`.
+9. The 404 route had no document title and no `<h1>` (it renders outside the shell that sets titles). Fixed with `useDocumentTitle` and a screen-reader heading.
+10. Assessment-detail and catchment-detail routes fell back to the generic `RidgeWatch` document title. The shell now maps id-bearing paths to their own titles.
 
 ## Explicit non-claims
 

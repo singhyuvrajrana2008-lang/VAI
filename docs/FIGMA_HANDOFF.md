@@ -38,7 +38,7 @@ All routes below exist and render real states: public landing, overview, catchme
 - Auth is wired to Supabase only when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` exist. Without them the auth pages show a configuration state and the demo dashboard stays available. There is no simulated login.
 - Without `VITE_GOOGLE_MAPS_API_KEY`, the map region renders a clearly labelled **schematic** projection of the API geometry ("not a basemap"), never a fabricated basemap or boundary.
 - The demo state appears in a persistent top strip, on catchment rows, on warning records and on assessment panels.
-- Verified locally: typecheck, 26 tests (including 8 jsdom page-rendering tests) and a production build. A real browser could not run (missing system libraries, no root), so rendered pixels, keyboard traversal and Supabase sign-in remain unverified.
+- Verified locally: typecheck, 31 tests (including jsdom page-rendering tests) and a production build, plus headless-Chromium QA (`scripts/browser_qa.mjs`) over 17 routes at 1440 px and 360 px with 0 defects: document titles, `<h1>`s, no horizontal page scrolling at phone width, a visible keyboard focus ring, the assessment flow through to the evidence report, and recoverable error panels under simulated API outage and API 500. Supabase sign-in and provider-backed states remain unverified (no credentials).
 
 ## Data-state contract
 

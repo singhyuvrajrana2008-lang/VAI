@@ -63,7 +63,7 @@ python -m pytest -q
 python -m compileall -q app tests
 ```
 
-Last verified: **50 passed** (Python 3.12.3) and compile check passed.
+Last verified: **54 passed** (Python 3.12.3) and compile check passed. The suite includes `tests/test_rls_script.py`, which runs `scripts/rls_isolation_check.py` against an in-memory fake Supabase to prove its pass path, its failure path when owner scoping is broken, and its honest skip path without credentials. The script itself still needs a real configured project before RLS can be called verified.
 
 ## Limitations
 

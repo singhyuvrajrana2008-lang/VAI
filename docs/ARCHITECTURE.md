@@ -147,7 +147,7 @@ Routes: `/` public entry page; `/overview` map console; `/catchments`, `/catchme
 ## 11. Known architectural gaps
 
 1. No connector, cache, retry/backoff implementation for external data (only the provider abstraction and timeout envelope).
-2. Supabase persistence and token verification are implemented but unverified; the migration is unapplied in any live project and no two-user RLS test has run.
+2. Supabase persistence and token verification are implemented but unverified; the migration is unapplied in any live project. The two-user RLS test is scripted (`scripts/rls_isolation_check.py`, covered by fake-Supabase tests) but has not run against a real project.
 3. No validated geometry, terrain features or ingestion pipeline.
 4. No evaluation harness, because there are no labels.
 5. No deployment configuration has been executed.

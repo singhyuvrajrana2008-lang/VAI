@@ -118,7 +118,7 @@ Demo timestamps are constants, never "now", so fixtures cannot drift into lookin
 
 ## Verification limits
 
-- No real browser could run: Chromium's shared libraries are absent and root access is unavailable for installation. Instead, 10 jsdom integration tests mount the actual pages (React Query + router + pages) against mocked API responses and assert the landing entry points, demo labels, assessment click path, assessments list scope, warning-unavailable semantics, evidence traceability, auth configuration state and 404 routing. Pixel layout, CSS rendering, keyboard traversal and live Supabase sign-in remain unverified.
+- Browser rendering is now verified: headless Chromium (`scripts/browser_qa.mjs`) walked 17 routes at 1440 px and 360 px, confirmed document titles, `<h1>`s, genuine absence of horizontal page scrolling, a visible keyboard focus ring, the end-to-end assessment flow through to the evidence report, and recoverable error panels under a simulated API outage and API 500 — 0 defects after three fixes. It runs against local demo data only; no provider-backed page could be exercised because no provider is configured. Live Supabase sign-in is still unverified (no credentials), as are any flows that require paid provider access.
 - Supabase Auth and persistence were implemented against documented endpoints but **not executed against a live project**. The gateway is tested only with mocked HTTP. Do not call it verified.
 - No deployment was performed.
 - `indiawris.gov.in` failure may be a network restriction of this environment rather than the service being down.
