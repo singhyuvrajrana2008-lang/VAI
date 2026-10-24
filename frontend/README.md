@@ -1,23 +1,60 @@
 # RidgeWatch frontend
 
-React/Vite operations UI for the RidgeWatch research prototype. It uses the FastAPI contract from `origin/feat/backend-foundation`; no live values or geometry are bundled.
+React 19 + TypeScript + Vite operations interface for the RidgeWatch research prototype. No live values, warnings or geometry are bundled.
 
-## Setup
+## Run
 
 ```bash
 cd frontend
-cp .env.example .env
-pnpm install
-pnpm dev
+npm install
+npm run dev          # http://localhost:3000
 ```
 
-Set `VITE_API_BASE_URL` to the API root including `/api/v1`. `VITE_GOOGLE_MAPS_API_KEY` is optional; when absent the UI shows an honest map configuration state. If supplied, use a Google Maps JavaScript API browser key restricted by allowed web referrer. Never use `GOOGLE_MAPS_SERVER_KEY` in the frontend.
+The dev server proxies `/api` to `http://127.0.0.1:8000` so the browser stays same-origin (also works behind a remote preview). Override with `VITE_DEV_API_TARGET`.
+
+## Environment
+
+Copy `.env.example` to `.env.local` (ignored by Git):
+
+| Variable | Effect |
+| --- | --- |
+| `VITE_API_BASE_URL` | API root including `/api/v1`. Default `/api/v1` uses the dev proxy |
+| `VITE_GOOGLE_MAPS_API_KEY` | Optional browser key. Without it a labelled schematic fallback is shown — never an invented map |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Enable Supabase Auth. Without them auth pages explain configuration; demo browsing still works |
+
+These are public. Never add a service-role key or any `VITE_`-prefixed secret.
+
+## Routes
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Map-first overview: source strip, catchment inspector, warnings separate from assessment |
+| `/catchments`, `/catchments/:id` | Registry with search, provenance and validation |
+| `/rainfall` | Observed vs forecast, chart with units/UTC/gaps, provenance tables |
+| `/warnings` | Chronological official-warning log; unavailable is not an all-clear |
+| `/assessments`, `/assessments/:id` | Run the baseline; read the full evidence report |
+| `/data-health` | Dense capability matrix and configuration presence |
+| `/methodology` | Baseline rules, unvalidated thresholds, evaluation status |
+| `/history` | Account-scoped; honest unavailable state without persistence |
+| `/settings` | Real account actions and presence-only configuration |
+| `/login`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback` | Supabase Auth flows; no simulated user |
+| `*` | Not-found with a safe route back |
 
 ## Checks
 
 ```bash
-pnpm typecheck
-pnpm build
+npm run typecheck
+npm test
+npm run build
 ```
 
-The current backend foundation provides no verified live providers or geometry. Start it with `RIDGEWATCH_MODE=demo` to expose its deliberately empty, visibly labelled demo catchment.
+Last verified (Node 24.21.0): typecheck passed, 18 unit tests passed, production build succeeded.
+
+## Data honesty rules encoded in the UI
+
+- Observed and forecast records are never merged into one total.
+- Missing hours render as chart gaps; there is no zero-fill.
+- A null score is displayed as "not a numeric index", never as zero risk.
+- Assessment panels are labelled EXPERIMENTAL; warnings are a separate region with their own source hierarchy.
+- Demo fixtures display DEMO at strip, catchment, warning and assessment level.
+- Buttons either perform a real request or are absent; no inert save controls.
