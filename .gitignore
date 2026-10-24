@@ -42,5 +42,8 @@ data/private/
 *.pkl
 *.joblib
 
+# QA output (screenshots, browser reports)
+artifacts/
+
 # Logs
 *.log
