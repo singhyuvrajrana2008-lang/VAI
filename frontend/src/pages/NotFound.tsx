@@ -1,10 +1,13 @@
 import { ArrowLeft, MapPinned, TriangleAlert } from 'lucide-react';
 import { Link, useRouteError } from 'react-router';
+import { useDocumentTitle } from '../lib/hooks';
 import { EmptyPanel } from '../components/Status';
 
 export function NotFound() {
+  useDocumentTitle('Page not found · RidgeWatch');
   return (
     <div className="page">
+      <h1 className="sr-only">Page not found</h1>
       <EmptyPanel
         title="This route does not exist"
         icon={<MapPinned size={22} aria-hidden="true" />}

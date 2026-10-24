@@ -563,7 +563,10 @@ main { flex: 1; }
   .rule-grid { gap: 1px; }
   .coverage-lists { grid-template-columns: 1fr; }
   .assessment-layout { grid-template-columns: 1fr; }
-  .methodology .editorial { grid-template-columns: 1fr; gap: 24px; }
+  /* minmax(0, 1fr) + min-width:0 keeps the threshold table's 480px
+     min-width inside its own scroll container instead of widening the page. */
+  .methodology .editorial { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .methodology .editorial > * { min-width: 0; }
   .editorial aside { position: static; }
   .editorial aside ol { grid-template-columns: repeat(2, auto); }
   .auth-shell { grid-template-columns: 1fr; }

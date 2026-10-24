@@ -38,6 +38,10 @@ const TITLES: Array<[string, string]> = [
 ];
 
 function titleFor(pathname: string): string {
+  // Detail routes carry an opaque id, so they get their own title instead of
+  // falling through to the generic document title.
+  if (/^\/assessments\/[^/]+$/.test(pathname)) return 'Assessment evidence · RidgeWatch';
+  if (/^\/catchments\/[^/]+$/.test(pathname)) return 'Catchment detail · RidgeWatch';
   const match = TITLES.find(
     ([path]) => pathname === path || (path !== '/assessments' && pathname.startsWith(`${path}/`)),
   );
