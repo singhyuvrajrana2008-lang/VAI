@@ -111,6 +111,8 @@ Do not assume a proposed route is implemented without checking. Implement one ty
 Environment variables:
 - `VITE_API_BASE_URL`
 - `VITE_GOOGLE_MAPS_API_KEY`
+- `VITE_SUPABASE_URL` (optional until Supabase Auth is configured)
+- `VITE_SUPABASE_ANON_KEY` (or Supabase publishable key; browser-safe only)
 
 Never add real credentials. Add `.env.example` only if absent or coordinate any edit. Google Maps browser keys must be restricted in Google Cloud by allowed website/referrer and enabled APIs. Do not use a backend/server key in the frontend.
 
@@ -119,6 +121,30 @@ If the Google Maps key is missing, do not crash: show a clear map-configuration 
 ## 4. Required screens
 
 Implement these screens and working navigation; prioritise the first vertical slice before secondary pages.
+
+### Authentication and account pages (required)
+
+Build real authentication UI, not just a profile icon or a decorative login modal. Required routes:
+- `/login`: email/password sign-in, validation, show/hide password, loading/error states, and a link to create an account or reset a password.
+- `/signup`: account creation, password confirmation and validation, terms/privacy acknowledgement only if the project actually provides those pages/policies, and a clear email-verification-pending state when confirmation is enabled.
+- `/forgot-password`: request a reset email with a safe confirmation message that does not reveal whether an email address is registered.
+- `/reset-password`: accept the valid Supabase recovery session/token, validate and save the new password, and handle expired/invalid links.
+- Account/profile settings: show the authenticated user's email and provide a working sign-out action; expose only preferences that actually persist.
+
+Integration and access rules:
+- Use Supabase Auth via `@supabase/supabase-js` if the dependency/service is configured. Use only the browser-safe `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (or Supabase's publishable key). Never put a service-role key in frontend code or browser environment variables.
+- Persist and restore the Supabase session correctly, react to auth state changes, and redirect signed-out users away from private history/subscription/profile routes. Preserve a safe return path after login.
+- Do not implement your own password storage or fake successful authentication.
+- If Supabase Auth is not configured, clearly mark live authentication as unavailable and offer a separate **Continue in Demo Mode** entry point. Demo mode must remain visibly DEMO, must not invent a logged-in identity, and must not imply private history/subscriptions are saved.
+- Public demo dashboard access can remain available without login; prompt users to sign in only for features that need a real account.
+- Include loading, invalid-input, incorrect-credentials, rate-limit/network failure, email-confirmation and expired-reset-link states. Use accessible labels, keyboard navigation and visible focus styles.
+- Add the required environment variable names to `.env.example` and setup docs, with empty placeholders only.
+
+Acceptance checks for authentication:
+1. Login, signup, forgot-password and reset-password pages/routes exist and are navigable.
+2. With valid Supabase configuration, sign-in/sign-out and password recovery use Supabase Auth rather than local fake state.
+3. Signed-out users cannot access private account/history/subscription UI.
+4. Without auth configuration, the app still opens in explicitly labelled demo mode without claiming login succeeded.
 
 ### A. Overview dashboard — `/` or `/dashboard`
 - Map occupies the main canvas.
@@ -242,6 +268,7 @@ A frontend implementation is ready for PR when:
 11. It has `.env.example`, setup instructions and no committed secrets.
 12. A clean build/typecheck is executed and results are reported.
 13. Work is committed/pushed to `feat/ridgewatch-frontend` on VAI and a PR link is given if Figma's connected workflow supports it.
+14. Login, signup, password recovery and sign-out flows are implemented; auth is real when configured, and missing config leads to an honest demo-only path.
 
 ## 8. Work plan — do not get stuck planning
 
