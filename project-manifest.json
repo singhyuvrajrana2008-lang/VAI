@@ -1,0 +1,36 @@
+{
+  "name": "RidgeWatch",
+  "repository": "singhyuvrajrana2008-lang/VAI",
+  "project_type": "catchment-level flash-flood risk decision-support prototype",
+  "status": "planning-and-bootstrap",
+  "default_branch": "main",
+  "source_of_truth": [
+    "AGENTS.md",
+    "docs/PRD.md",
+    "docs/ARCHITECTURE.md",
+    "docs/DATA_SOURCES.md",
+    "docs/EVALUATION.md",
+    "docs/AGENT_TASK_MATRIX.md",
+    "supabase/migrations/0001_initial_schema.sql"
+  ],
+  "agents": {
+    "figma_make": "visual design and UI handoff",
+    "manus": "FastAPI backend and integrations",
+    "claude": "data feasibility and ML evaluation",
+    "chatgpt": "architecture, safety, and integration review",
+    "human_project_lead": "decisions, priority, acceptance, and merges"
+  },
+  "stack": {
+    "frontend": "React + TypeScript",
+    "backend": "Python + FastAPI",
+    "database": "Supabase PostgreSQL",
+    "geospatial": "PostGIS",
+    "maps": "Google Maps JavaScript API, subject to key restrictions and billing"
+  },
+  "safety": {
+    "operational_warning_service": false,
+    "llm_calculates_risk_score": false,
+    "demo_data_must_be_marked": true,
+    "missing_or_stale_data_must_be_explicit": true
+  }
+}
