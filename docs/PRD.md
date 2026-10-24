@@ -111,6 +111,7 @@ The MVP must not impersonate an official government alert service.
 - README distinguishes configured services from placeholders.
 - A reviewer can trace each displayed value to a provider, fixture or computation.
 - Login, sign-up, password recovery and sign-out work with Supabase Auth when configured; otherwise the app clearly falls back to demo-only access without fake authentication.
+- Login, sign-up, password recovery and sign-out work with Supabase Auth when configured; otherwise the app clearly falls back to demo-only access without fake authentication.
 
 ## 10. Open decisions
 - Pilot catchment and verified polygon.
