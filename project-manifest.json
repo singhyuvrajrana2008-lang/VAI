@@ -2,13 +2,14 @@
   "name": "RidgeWatch",
   "repository": "singhyuvrajrana2008-lang/VAI",
   "project_type": "catchment-level flash-flood risk decision-support prototype",
-  "status": "planning-and-backend-foundation-pr",
+  "status": "demo-mvp-implemented-local-only",
   "default_branch": "main",
   "source_of_truth": [
     "AGENTS.md",
     "docs/PRD.md",
     "docs/ARCHITECTURE.md",
     "docs/DATA_SOURCES.md",
+    "docs/DATA_FEASIBILITY_REPORT.md",
     "docs/EVALUATION.md",
     "docs/AGENT_TASK_MATRIX.md",
     "supabase/migrations/0001_initial_schema.sql"
@@ -20,17 +21,33 @@
     "human_project_lead": "decisions, priority, acceptance and merges"
   },
   "stack": {
-    "frontend": "React + TypeScript",
-    "backend": "Python + FastAPI",
-    "database": "Supabase PostgreSQL",
-    "geospatial": "PostGIS",
-    "maps": "Google Maps JavaScript API, subject to key restrictions and billing"
+    "frontend": "React 19 + TypeScript + Vite",
+    "backend": "Python 3.12 + FastAPI",
+    "database": "Supabase PostgreSQL (migration prepared, not wired)",
+    "geospatial": "PostGIS (schema only)",
+    "maps": "Google Maps JavaScript API, optional; labelled schematic fallback"
+  },
+  "implemented": {
+    "demo_mode_with_no_credentials": true,
+    "labelled_synthetic_fixtures": true,
+    "catchment_registry_and_detail": true,
+    "observed_versus_forecast_separation": true,
+    "official_warning_log_with_unavailable_state": true,
+    "deterministic_rainfall_accumulation_baseline": true,
+    "assessment_evidence_report": true,
+    "source_health_matrix": true,
+    "supabase_auth_pages": "implemented, unverified without a Supabase project",
+    "supabase_persistence": false,
+    "external_data_connectors": 0,
+    "validated_catchment_geometry": false,
+    "trained_or_evaluated_model": false
   },
   "safety": {
     "operational_warning_service": false,
     "llm_calculates_risk_score": false,
     "demo_data_must_be_marked": true,
     "missing_or_stale_data_must_be_explicit": true,
-    "supervised_ml_requires_data_feasibility_gate": true
+    "supervised_ml_requires_data_feasibility_gate": true,
+    "numeric_risk_score_without_calibration": false
   }
 }

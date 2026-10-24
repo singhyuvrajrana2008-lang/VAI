@@ -1,116 +1,148 @@
 # RidgeWatch Architecture
 
 ## 1. System boundaries
-- Frontend: React + TypeScript. Owns navigation, map display, filters, user input, status presentation and visualization.
-- API backend: Python + FastAPI. Owns provider connectors, validation, feature aggregation, risk calculation, provenance and server-side secrets.
-- Data pipeline: scheduled or on-demand fetchers normalise observations and store source metadata.
-- Risk engine: transparent baseline first; trained model is optional and gated on data feasibility.
-- Supabase: PostgreSQL/Auth/Storage; enable PostGIS for catchment geometry and RLS for private rows.
-- Google Maps: basemap, place navigation and user interaction only. It is not a rainfall or river data source.
-- Optional Gemini: grounded narrative from a validated structured result only.
 
-## 2. Request flow
-1. User selects catchment and requests current conditions.
-2. Frontend calls the FastAPI endpoint with catchment ID and requested time horizon.
-3. Backend retrieves cached/verified observations or performs a bounded provider request.
-4. Connectors normalise units and timestamps while preserving source metadata.
-5. Backend checks freshness, geographic coverage, missing inputs and source health.
-6. If eligible, baseline/model calculates an experimental status and reason codes; otherwise status is insufficient_data or degraded.
-7. Backend writes a snapshot and assessment when persistence is enabled.
-8. Frontend renders observations, official warnings and experimental risk separately.
-9. Optional narrative generation receives only the structured result and may not change numeric fields.
+- **Frontend:** React 19 + TypeScript + Vite. Owns navigation, map/schematic display, user input, status presentation and charts. It never computes a risk band.
+- **API backend:** Python 3.12 + FastAPI. Owns provider access, validation, freshness eligibility, the deterministic baseline, provenance and server-side secrets.
+- **Data pipeline:** not implemented. No scheduled fetcher runs; no observation table is populated.
+- **Risk engine:** deterministic rainfall-accumulation baseline v0.1. No trained model exists.
+- **Supabase:** schema and RLS policies are prepared in `supabase/migrations/0001_initial_schema.sql`. The API does **not** read or write it in this build.
+- **Google Maps:** optional basemap/interaction only. Never a hydrology source.
+- **LLM:** not integrated. No AI explanation path exists.
 
-## 3. Shared status vocabulary
-Assessment status: low, moderate, high, very_high, insufficient_data, degraded, unavailable. Use only statuses supported by the chosen baseline/model, and do not assume low means safe.
+## 2. Request flow (implemented)
 
-Source state: live, stale, unavailable, error, demo, partial.
+1. Frontend selects a catchment (URL query `?catchment=<id>`), so state is shareable and reload-safe.
+2. React Query requests the catchment registry, observations, warnings and source status independently; one failing section does not blank the dashboard.
+3. Backend resolves the catchment from its registry. Demo mode exposes two synthetic fixtures; live mode exposes none.
+4. Responses carry provider, units, observation/issue/fetch timestamps, coverage, quality flags, `source_state` and `is_demo`.
+5. A requested assessment runs the baseline over those records. The result is kept in a bounded in-process store and returned with coverage, inputs, reason codes and a disclaimer.
+6. Frontend renders official warnings and the experimental assessment in visually and semantically separate regions.
+7. No LLM narrative is generated.
 
-Every response includes is_demo boolean. A demo response must never be described as a live observation.
+## 3. Status vocabulary
 
-## 4. API contract (initial proposal)
-- GET /api/v1/health — backend and connector health; not a proxy for source accuracy.
-- GET /api/v1/catchments — catchment IDs, names, geometry reference and validation state.
-- GET /api/v1/catchments/{id} — metadata and selected geometry.
-- GET /api/v1/catchments/{id}/observations?from=&to= — source-aware observations.
-- GET /api/v1/catchments/{id}/warnings — official warnings from configured providers.
-- POST /api/v1/catchments/{id}/assessments — request an experimental assessment.
-- GET /api/v1/assessments/{id} — retrieve a saved assessment.
-- GET /api/v1/sources/status — source health and data freshness.
-- GET /api/v1/history — authenticated user's assessment history.
-- POST /api/v1/subscriptions — create/update a catchment subscription when enabled.
+- Assessment: `low`, `moderate`, `high`, `very_high`, `insufficient_data`, `degraded`, `unavailable`.
+- Source: `live`, `stale`, `unavailable`, `error`, `demo`, `partial`.
+- Every response includes `is_demo`. A demo response is never described as live.
+- `status=low` is only returned when a complete 3-hour rainfall window exists. It is an experimental band, not a safety guarantee.
 
-These paths are proposed contracts. If implementation changes them, update this document, typed frontend clients and tests together.
+## 4. Implemented API (prefix `/api/v1`)
 
-## 5. Example assessment response
+| Method | Path | Behaviour |
+| --- | --- | --- |
+| GET | `/health` | Service status plus **presence-only** configuration report (demo mode, persistence, auth, external sources). No credential values. |
+| GET | `/catchments` | Registry with geometry state, provenance, validation status and `is_demo`. Empty in live mode. |
+| GET | `/catchments/{id}` | Single catchment; 404 when absent from the registry. |
+| GET | `/catchments/{id}/observations?from=&to=` | `observed` and `forecast` arrays are separate; `items` is the union; `units`, `source_state`, `is_demo`, explanatory `message`. Invalid range → 422. |
+| GET | `/catchments/{id}/warnings` | Chronological records with provider, severity, issue/valid times, geography, optional `source_url`, `provider_configured` and a message that never implies an all-clear. |
+| POST | `/catchments/{id}/assessments` | Body `{}` or `{"requested_at": "<ISO-8601 with timezone>"}`. Returns band, null score, coverage, inputs, reason codes, attached warnings, storage mode and disclaimer. Rate limited; oversized body → 413. |
+| GET | `/assessments/{id}` | In-process retrieval; 404 with an explanation once the API restarts. |
+| GET | `/sources/status` | Capability matrix: provider, configured, state, verification, timestamps, units, flags, message. Demo rows are distinct from unavailable rows. |
+| GET | `/history` | 503 `persistence_unavailable`. Deliberately not faked. |
+
+Not implemented: subscriptions, saved history, ingestion, provider connectors. No endpoint accepts a client-supplied user ID.
+
+## 5. Assessment contract (implemented)
+
+```json
 {
   "assessment_id": "uuid",
-  "catchment_id": "pilot-catchment",
-  "status": "insufficient_data",
+  "catchment_id": "demo-sector-a",
+  "status": "high",
   "score": null,
-  "score_semantics": "not_calibrated",
-  "model_version": "baseline-v1",
-  "issued_at": "ISO-8601 timestamp",
+  "score_semantics": "categorical_only_no_calibrated_index",
+  "model_version": "rainfall-accumulation-baseline-v0.1",
+  "issued_at": "2026-10-24T16:35:00Z",
   "is_demo": true,
   "data_coverage": {
-    "required_inputs": 4,
-    "available_inputs": 2,
-    "missing": ["river_stage", "soil_moisture"],
-    "stale": []
+    "required_inputs": 1,
+    "available_inputs": 1,
+    "missing": [],
+    "stale": [],
+    "supporting_missing": ["river_stage", "soil_moisture"]
   },
-  "reason_codes": ["INSUFFICIENT_REQUIRED_INPUTS"],
+  "reason_codes": [
+    "RAINFALL_3H_AT_OR_ABOVE_60MM",
+    "ACCUMULATION_WINDOW_3H",
+    "DEMO_FIXTURE_INPUTS",
+    "THRESHOLD_BASELINE_NOT_EVALUATED"
+  ],
+  "inputs": [
+    {
+      "variable": "rainfall",
+      "label": "Observed rainfall",
+      "value": 31.2,
+      "unit": "mm",
+      "provider": "RidgeWatch synthetic demo fixture",
+      "included": true,
+      "reason": "DEMO_FIXTURE_INPUT"
+    }
+  ],
   "sources": [],
-  "warnings": []
+  "warnings": [],
+  "persisted": false,
+  "persistence": "memory",
+  "disclaimer": "Experimental research output..."
 }
+```
 
-Example only; values above must never be hardcoded as live data. Use null if an input is unavailable. Do not infer a low-risk state from missing values.
+Values above are illustrative of the demo fixture, not live data. The score is `null` by design: only a documented, calibrated model may return a numeric index.
 
-## 6. Normalised observation contract
-An observation should include:
-- source_id and provider
-- variable and value
-- unit
-- observed_at or issued_at
-- fetched_at
-- valid_from and valid_to where relevant
-- geometry/catchment coverage
-- source_state and is_demo
-- quality flags and raw-source reference where permissible
+**Baseline rules:** required input is observed rainfall (freshness 3 h). Latest contiguous 3-hour window is summed; a gap breaks the window. Thresholds: ≥100 very_high, ≥60 high, ≥25 moderate, else low. Missing → `insufficient_data`; incomplete window → `degraded`. Supporting inputs (forecast, river stage, soil moisture) are recorded but do not alter the band.
 
-Use UTC ISO-8601 timestamps internally. Convert to display timezone only in the UI. Preserve source-native timestamp and units in provenance.
+## 6. Normalised record contract
 
-## 7. Database responsibilities
-Supabase is the persistence layer, not the main compute engine. Use PostGIS for geometry storage and spatial queries where enabled. Server-side ingestion can write to source-observations tables. Authenticated frontend users may read/write only rows allowed by RLS. Provider credentials and service-role keys must remain server-only.
+Observation: `source_id`, `provider`, `variable`, `value`, `unit`, `observed_at`/`issued_at`, `fetched_at`, `valid_from`/`valid_to`, `geographic_coverage`, `freshness`, `source_state`, `quality_flags`, `is_demo`.
 
-## 8. Caching and freshness
-- Cache data according to source update cadence and terms.
-- Every cached response preserves observation time and fetch time.
-- Expose cache age and source freshness in the API.
-- Never make an old observation look current by updating fetched_at without a new fetch.
-- Keep the official warning's issue/validity timestamps distinct from RidgeWatch assessment time.
+Timestamps are UTC ISO-8601 internally; the UI labels its display timezone (UTC) explicitly. Source-native values are preserved alongside normalised ones; no unit conversion is performed in this build.
 
-## 9. Failure handling
-- Provider timeout: show source unavailable; do not substitute invented zero rainfall.
-- Partial response: return available values plus explicit missing fields and status.
-- Stale source: mark stale and apply input eligibility policy.
-- Invalid geometry or units: reject and log a sanitised error.
-- Supabase outage: show persistence unavailable; do not pretend history was saved.
-- LLM failure: preserve the actual assessment; hide the generated explanation or use a fixed factual template.
-- All demo responses carry is_demo=true at the API boundary.
+## 7. Frontend architecture
 
-## 10. Authentication and account flow
+- `lib/api.ts` — single typed client: base URL, 12 s timeout via `AbortController`, safe error normalisation (status, code, request id), zod validation of every response.
+- `lib/schemas.ts` — runtime contract mirroring the Pydantic schemas.
+- `lib/auth.tsx` — Supabase client created only when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` exist; session restore, auth-state subscription with cleanup, sign-in/up/out, recovery, password update. No fake session.
+- `lib/hooks.ts` — catchment selection from the URL; queries keyed by catchment id so switching cannot show another catchment's cached data.
+- `components/` — status pills, state panels, map/schematic, chart, assessment panel, auth guard.
+- `pages/` — one composition per task (map console, dense registry, chronological log, editorial report, dense health matrix, branded auth).
+- `main.tsx` — React Query client with one retry; error boundary at the router.
 
-- Use Supabase Auth as the identity provider; frontend routes should include `/login`, `/signup`, `/forgot-password` and `/reset-password`.
-- The frontend may use `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (or a Supabase publishable key). Never expose the service-role key in the browser.
-- Support session restoration, sign-out, password recovery and email-confirmation states according to the configured Supabase project.
-- Public dashboard/demo access may work without login. Private account, profile, saved-history and subscription operations require a real authenticated session and owner-scoped authorization.
-- If Supabase Auth is unconfigured, offer a visibly labelled demo mode rather than simulated credentials or a fake logged-in user.
-- When the backend uses privileged database credentials, it must verify the caller's Supabase access token and enforce ownership; it must not trust user IDs supplied in request bodies.
+## 8. Authentication and data access boundary
 
-## 11. Security
-- Never expose Supabase service-role key or provider secrets to frontend.
-- Restrict browser Google Maps keys by website and API.
-- Use RLS and test with two users.
-- Validate inputs and payload size.
-- Use rate limits on externally triggered source requests.
-- Do not log sensitive tokens.
-- Keep data licensing/retention decisions documented.
+- Supabase Auth is the only identity provider. Browser configuration is limited to `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- The service-role key is server-only and is not used by any endpoint yet.
+- Public demo browsing requires no account. Account pages (`/history`) require a verified session via `RequireAuth`; a signed-out visitor is redirected to `/login` with a validated internal `from` path, never an external URL.
+- Without Supabase configuration, account routes render a configuration state instead of redirecting, preventing loops.
+- RLS policies in the migration scope `profiles`, `assessments` and `catchment_subscriptions` to `auth.uid()`. There are no public write policies on regional data tables.
+- **Not implemented:** backend token verification, persistence, subscriptions. `/history` returns 503 rather than pretending.
+
+## 9. Failure handling (implemented)
+
+| Condition | Behaviour |
+| --- | --- |
+| Provider timeout / exception | `ProviderResult` returns `error`, sanitised message and `PROVIDER_TIMEOUT` / `PROVIDER_ERROR`; no internal exception text leaves the process |
+| Missing rainfall | `insufficient_data`, `score=null`, `INSUFFICIENT_REQUIRED_INPUTS` |
+| Stale rainfall | `insufficient_data`, `STALE_REQUIRED_INPUTS` (never low) |
+| Gap in series | `degraded`, `INCOMPLETE_ACCUMULATION_WINDOW` |
+| Warning provider absent | `source_state=unavailable` + explicit message; never "no warnings" |
+| Assessment store restart | `GET /assessments/{id}` returns 404 with a persistence explanation |
+| API unreachable | Frontend shows a retryable disconnected panel; no fake success |
+| Unexpected exception | Sanitised 500 `{detail, code, request_id}`; internal error logged without secrets |
+| Oversized body | 413 `payload_too_large` |
+| Request burst | 429 with retry guidance |
+
+## 10. Security posture
+
+- CORS is an explicit origin allowlist from `CORS_ORIGINS`; no wildcard, `allow_credentials=False`.
+- Request IDs are returned for tracing; responses set `X-Content-Type-Options: nosniff`.
+- No secrets in responses, logs or the bundle. No `VITE_` variable carries a privileged key.
+- The frontend validates every payload before rendering; it does not trust the backend blindly.
+- External links use `rel="noreferrer noopener"`.
+
+## 11. Known architectural gaps
+
+1. No connector, cache, retry/backoff implementation for external data (only the provider abstraction and timeout envelope).
+2. No Supabase persistence or token verification; the migration is unapplied in any live project.
+3. No validated geometry, terrain features or ingestion pipeline.
+4. No evaluation harness, because there are no labels.
+5. No deployment configuration has been executed.

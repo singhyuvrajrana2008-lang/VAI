@@ -1,5 +1,25 @@
 # Risk Model Evaluation Protocol
 
+## Current implementation status (24 October 2026)
+
+**No model has been trained and no metric has been computed.** The only implemented path is the deterministic rainfall-accumulation baseline v0.1, documented below in §"Implemented baseline v0.1".
+
+- Historical event labels: **none available**. The supervised-training gate is therefore closed.
+- Prediction horizon, event definition and feature cut-off: **not yet defined** (requires labels and authority input).
+- Evaluation metrics reported by the application: **none**. Precision, recall, PR-AUC, false alarms per catchment-day, lead time and calibration are all absent by design.
+- Thresholds in the baseline are developer-set illustrations, not validated local thresholds.
+- No trained model is used for any output, so there is no leakage risk from post-event products in the current build. Any future training must satisfy the rules in this document.
+
+This section must be replaced with measured results only when a valid, documented evaluation exists.
+
+## Implemented baseline v0.1
+
+Inputs: observed hourly rainfall (required), forecast rainfall / river stage / soil moisture (tracked as supporting, currently unavailable).
+
+Procedure: find the latest contiguous 3-hour window of observed rainfall; gaps break the window and are never zero-filled; sum in millimetres; map to a band using ≥100 mm `very_high`, ≥60 mm `high`, ≥25 mm `moderate`, else `low`. Missing rainfall → `insufficient_data`; stale rainfall → `insufficient_data`; incomplete window → `degraded`. The numeric `score` is always `null` with semantics `categorical_only_no_calibrated_index`.
+
+This baseline has **not** been compared with persistence, gauge thresholds or climatology on held-out events, because no verified event labels exist. Calling its output "skilful" would be unsupported.
+
 ## Purpose
 Evaluate whether an experimental catchment-level flash-flood risk assessment adds value beyond simple baselines. No model is considered operationally reliable without region-specific validation and appropriate authority review.
 
