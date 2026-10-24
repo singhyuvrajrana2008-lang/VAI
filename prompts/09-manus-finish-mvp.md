@@ -129,7 +129,37 @@ Requirements:
 
 If no credentials exist, finish a provider adapter and tests with mocked HTTP responses, describe how to configure it, and mark it NOT TESTED or UNAVAILABLE. Do not say it is live.
 
-## 6. Phase D — Supabase integration
+## 6. Phase D — Supabase integration and authentication
+
+Use the migration in `supabase/migrations/0001_initial_schema.sql` as the starting point. Review its tables and RLS before modifying it.
+
+### Auth/account support
+- Support the frontend's Supabase Auth flows: email/password sign-up and sign-in, email verification state, password reset/recovery, session persistence and sign-out.
+- Keep Supabase Auth as the identity provider; do not create a separate password table or store raw passwords.
+- Document `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (or the current publishable key) for the browser client. These are the only Supabase credentials that may be exposed in the frontend.
+- Keep `SUPABASE_SERVICE_ROLE_KEY` server-side only. Never expose it through a `VITE_` variable, logs, commits or client responses.
+- If backend endpoints use a service-role client, validate the caller's Supabase access token and enforce ownership/authorization server-side before reading or writing user-specific rows. Never trust a client-supplied user ID.
+- Protect user-specific assessment history, subscriptions and profiles. Keep public catchment/source reads separate from private account data.
+- Keep/extend the `profiles.id` foreign key to `auth.users(id)` and ensure profile/subscription/history RLS policies enforce `auth.uid()` ownership. Add migrations incrementally; don't weaken RLS to make the UI easier.
+- If Auth credentials/configuration are absent, the app must remain usable in clearly labelled demo mode without creating a fake authenticated identity. Explain which sign-in features are unavailable.
+
+Minimum persistence requirements:
+- Catchment reference records.
+- Source observation snapshots.
+- Official warnings.
+- Assessment results/reason codes.
+- Optional user subscriptions/history.
+
+Requirements:
+- Use Supabase PostgreSQL/PostGIS only where configured.
+- Server-side service-role credential only.
+- Never expose service-role keys in frontend env variables or logs.
+- Add/adjust migrations incrementally; do not drop existing data.
+- Enforce row-level security for user-specific rows.
+- Add tests or a documented manual test to show one user cannot read another user's private history.
+- If Supabase credentials aren't configured, the API must still run in local/demo mode and clearly report persistence as unavailable.
+
+
 
 Use the migration in `supabase/migrations/0001_initial_schema.sql` as the starting point. Review its tables and RLS before modifying it.
 
