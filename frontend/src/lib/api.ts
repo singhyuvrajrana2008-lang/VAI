@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  assessmentListResponseSchema,
   assessmentSchema,
   catchmentsResponseSchema,
   catchmentSchema,
@@ -9,6 +10,7 @@ import {
   sourcesResponseSchema,
   warningsResponseSchema,
   type Assessment,
+  type AssessmentListResponse,
   type Catchment,
   type CatchmentsResponse,
   type HealthResponse,
@@ -131,12 +133,20 @@ export const api = {
   warnings: (id: string): Promise<WarningsResponse> =>
     request(`/catchments/${encodeURIComponent(id)}/warnings`, warningsResponseSchema),
   sources: (): Promise<SourcesResponse> => request('/sources/status', sourcesResponseSchema),
-  assess: (id: string): Promise<Assessment> =>
+  assess: (id: string, token?: string): Promise<Assessment> =>
     request(`/catchments/${encodeURIComponent(id)}/assessments`, assessmentSchema, {
       method: 'POST',
       body: '{}',
+      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
     }),
   assessment: (id: string): Promise<Assessment> =>
     request(`/assessments/${encodeURIComponent(id)}`, assessmentSchema),
-  history: (): Promise<HistoryResponse> => request('/history', historyResponseSchema),
+  assessments: (): Promise<AssessmentListResponse> =>
+    request('/assessments', assessmentListResponseSchema),
+  history: (token?: string): Promise<HistoryResponse> =>
+    request(
+      '/history',
+      historyResponseSchema,
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+    ),
 };

@@ -62,18 +62,18 @@ describe('safe redirects', () => {
   });
 
   it('rejects absolute, protocol-relative and backslash redirects', () => {
-    expect(safeRedirect('https://evil.example')).toBe('/');
-    expect(safeRedirect('//evil.example')).toBe('/');
-    expect(safeRedirect('/\\evil.example')).toBe('/');
-    expect(safeRedirect('/path\\to')).toBe('/');
-    expect(safeRedirect('javascript:alert(1)')).toBe('/');
+    expect(safeRedirect('https://evil.example')).toBe('/overview');
+    expect(safeRedirect('//evil.example')).toBe('/overview');
+    expect(safeRedirect('/\\evil.example')).toBe('/overview');
+    expect(safeRedirect('/path\\to')).toBe('/overview');
+    expect(safeRedirect('javascript:alert(1)')).toBe('/overview');
   });
 
   it('avoids auth redirect loops', () => {
-    expect(safeRedirect('/login')).toBe('/');
-    expect(safeRedirect('/signup?x=1')).toBe('/');
-    expect(safeRedirect('/auth/callback')).toBe('/');
-    expect(safeRedirect(null)).toBe('/');
+    expect(safeRedirect('/login')).toBe('/overview');
+    expect(safeRedirect('/signup?x=1')).toBe('/overview');
+    expect(safeRedirect('/auth/callback')).toBe('/overview');
+    expect(safeRedirect(null)).toBe('/overview');
   });
 });
 

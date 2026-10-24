@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, BellRing, CloudRain, Gauge, RefreshCw, ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router';
 import { api, ApiError } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { formatNumber, formatTimestamp, isExpired } from '../lib/format';
 import { useObservations, useSelectedCatchment, useWarnings } from '../lib/hooks';
 import { AssessmentPanel } from '../components/AssessmentPanel';
@@ -17,10 +18,13 @@ export function Overview() {
   const observations = useObservations(selectedId);
   const warnings = useWarnings(selectedId);
   const queryClient = useQueryClient();
+  const auth = useAuth();
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
+  const accessToken = auth.session?.access_token;
 
   const assessment = useMutation({
-    mutationFn: (id: string) => api.assess(id),
+    // A signed-in user's token lets the API persist an owner-scoped record.
+    mutationFn: (id: string) => api.assess(id, accessToken),
   });
   const resetAssessment = assessment.reset;
 

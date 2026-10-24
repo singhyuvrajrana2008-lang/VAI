@@ -9,7 +9,7 @@ export function NotFound() {
         title="This route does not exist"
         icon={<MapPinned size={22} aria-hidden="true" />}
         action={
-          <Link to="/" className="text-link">
+          <Link to="/overview" className="text-link">
             <ArrowLeft size={14} aria-hidden="true" /> Return to the overview
           </Link>
         }
@@ -36,7 +36,7 @@ export function RouteError() {
       </p>
       {isApi ? <code className="route-error__code">{error.name}</code> : null}
       <div className="route-error__actions">
-        <Link to="/" className="text-link">
+        <Link to="/overview" className="text-link">
           Return to the overview
         </Link>
         <button type="button" className="ghost-button" onClick={() => window.location.reload()}>

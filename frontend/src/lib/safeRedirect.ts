@@ -3,7 +3,7 @@
  * Rejects absolute URLs, protocol-relative URLs, auth-loop destinations and
  * backslash tricks that some browsers normalise into a new origin.
  */
-export function safeRedirect(candidate: string | null | undefined, fallback = '/'): string {
+export function safeRedirect(candidate: string | null | undefined, fallback = '/overview'): string {
   if (!candidate) return fallback;
   const value = candidate.trim();
   if (!value.startsWith('/')) return fallback;

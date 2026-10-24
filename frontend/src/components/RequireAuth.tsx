@@ -13,7 +13,7 @@ export function AuthNotConfigured({ title, copy }: { title: string; copy: string
         title="Authentication is not configured"
         icon={<ShieldQuestion size={22} aria-hidden="true" />}
         action={
-          <Link to="/" className="text-link">
+          <Link to="/overview" className="text-link">
             Continue in demo mode <ArrowRight size={14} aria-hidden="true" />
           </Link>
         }

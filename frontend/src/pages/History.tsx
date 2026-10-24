@@ -2,13 +2,21 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, FileClock } from 'lucide-react';
 import { Link } from 'react-router';
 import { api, ApiError } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { PageHeader } from '../components/PageHeader';
 import { RequireAuth } from '../components/RequireAuth';
 import { EmptyPanel, ErrorPanel, LoadingPanel, Notice, Status } from '../components/Status';
 import { formatTimestamp } from '../lib/format';
 
 function HistoryContent() {
-  const query = useQuery({ queryKey: ['history'], queryFn: api.history, retry: false });
+  const auth = useAuth();
+  const token = auth.session?.access_token;
+  const query = useQuery({
+    queryKey: ['history', token],
+    queryFn: () => api.history(token),
+    enabled: Boolean(token),
+    retry: false,
+  });
   const error = query.error instanceof ApiError ? query.error : null;
 
   return (
@@ -33,11 +41,30 @@ function HistoryContent() {
       {error?.status === 503 ? (
         <Notice tone="info" title="This is a server-side limitation, not an account problem">
           <p>
-            Your session is valid, but the API has no verified Supabase persistence connection, so
-            it cannot read saved assessments. Nothing is being stored on your behalf. The prepared
-            migration exists; wiring and testing it requires a Supabase project.
+            Your session is valid, but the API could not read saved assessments. Supabase
+            persistence is either not configured or has not been verified against a live project,
+            so nothing is reported as saved.
           </p>
         </Notice>
+      ) : null}
+
+      {error?.status === 401 ? (
+        <Notice tone="danger" title="Your session could not be verified">
+          <p>
+            The API rejected the access token. Sign out and sign in again to request a fresh
+            session. No history is shown rather than falling back to an unauthenticated view.
+          </p>
+          <button type="button" className="ghost-button" onClick={() => void auth.signOut()}>
+            Sign out
+          </button>
+        </Notice>
+      ) : null}
+
+      {!token ? (
+        <ErrorPanel
+          title="Session token unavailable"
+          message="No access token is available, so authenticated history cannot be requested."
+        />
       ) : null}
 
       {query.data && !error ? (

@@ -158,6 +158,15 @@ export const assessmentSchema = z.object({
   disclaimer: z.string(),
 });
 
+export const assessmentListResponseSchema = z.object({
+  items: z.array(assessmentSchema),
+  count: z.number(),
+  persistence: z.string(),
+  scope: z.string(),
+  is_demo: z.boolean(),
+  message: z.string(),
+});
+
 export const historyResponseSchema = z.object({
   items: z.array(assessmentSchema),
   count: z.number(),
@@ -194,6 +203,7 @@ export type SourceStatus = z.infer<typeof sourceStatusSchema>;
 export type SourcesResponse = z.infer<typeof sourcesResponseSchema>;
 export type Assessment = z.infer<typeof assessmentSchema>;
 export type HistoryResponse = z.infer<typeof historyResponseSchema>;
+export type AssessmentListResponse = z.infer<typeof assessmentListResponseSchema>;
 export type AssessmentInput = z.infer<typeof assessmentInputSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 export type SourceState = z.infer<typeof sourceStateSchema>;

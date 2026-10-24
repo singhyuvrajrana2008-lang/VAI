@@ -1,119 +1,148 @@
-import { useMutation } from '@tanstack/react-query';
-import { ArrowRight, FlaskConical } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowRight, FlaskConical, Plus, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router';
-import { api, ApiError } from '../lib/api';
-import { AssessmentPanel } from '../components/AssessmentPanel';
-import { CatchmentSelect } from '../components/CatchmentSelect';
+import { api } from '../lib/api';
 import { PageHeader } from '../components/PageHeader';
-import { ErrorPanel, LoadingPanel, Notice, Status } from '../components/Status';
-import { useSelectedCatchment } from '../lib/hooks';
-
-const RULES = [
-  {
-    title: 'Eligibility first',
-    copy: 'The baseline needs observed rainfall within the freshness window. Demo fixtures are exempt from wall-clock freshness but stay labelled DEMO.',
-  },
-  {
-    title: 'No evidence, no band',
-    copy: 'If rainfall is missing or stale the status is insufficient_data. A null score is returned and never treated as zero risk.',
-  },
-  {
-    title: 'Band, not probability',
-    copy: 'The 3-hour accumulation is mapped to a documented threshold band. No calibrated probability or numeric risk index exists.',
-  },
-];
+import { EmptyPanel, ErrorPanel, LoadingPanel, Notice, Status } from '../components/Status';
+import { formatTimestamp } from '../lib/format';
 
 export function Assessments() {
-  const selection = useSelectedCatchment();
-  const mutation = useMutation({ mutationFn: (id: string) => api.assess(id) });
-  const error = mutation.error instanceof ApiError ? mutation.error : null;
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ['assessments'],
+    queryFn: api.assessments,
+    staleTime: 0,
+  });
 
   return (
     <div className="page page--report">
       <PageHeader
-        eyebrow="EXPERIMENTAL BASELINE / EVIDENCE"
-        title="Request an assessment"
-        copy="Assessments are produced only by the deterministic backend baseline. The interface never computes or upgrades a risk band, and an LLM is not used anywhere in this flow."
+        eyebrow="EXPERIMENTAL ASSESSMENTS / RECORDS"
+        title="Assessments"
+        copy="Every assessment records its status, catchment, coverage, reason codes and evidence. Process-memory records are shown separately from authenticated history."
         aside={
-          <Link to="/methodology" className="text-link">
-            Read the methodology <ArrowRight size={13} aria-hidden="true" />
-          </Link>
+          <div className="page-head__links">
+            <Link to="/assessments/new" className="primary primary--inline">
+              <Plus size={14} aria-hidden="true" /> New assessment
+            </Link>
+            <Link to="/history" className="text-link">
+              Authenticated history <ArrowRight size={13} aria-hidden="true" />
+            </Link>
+          </div>
         }
       />
 
-      <div className="rule-grid">
-        {RULES.map((rule, index) => (
-          <article key={rule.title} className="rule-card">
-            <span className="rule-card__index">{String(index + 1).padStart(2, '0')}</span>
-            <h2>{rule.title}</h2>
-            <p>{rule.copy}</p>
-          </article>
-        ))}
-      </div>
+      {query.data ? (
+        <Notice tone="warn" title="These records are not private history">
+          <p>{query.data.message}</p>
+        </Notice>
+      ) : null}
 
-      <div className="ops-bar">
-        <CatchmentSelect
-          catchments={selection.catchments}
-          value={selection.selectedId}
-          onChange={selection.select}
-          disabled={selection.isLoading}
-        />
+      <div className="health-toolbar">
+        <span>
+          {query.data
+            ? `${query.data.count} record${query.data.count === 1 ? '' : 's'} in this API process`
+            : 'Loading records…'}
+        </span>
+        {query.data ? <span>Storage {query.data.persistence}</span> : null}
         <button
           type="button"
-          className="primary primary--inline"
-          onClick={() => selection.selectedId && mutation.mutate(selection.selectedId)}
-          disabled={!selection.selectedId || mutation.isPending}
+          className="ghost-button"
+          onClick={() => void queryClient.invalidateQueries({ queryKey: ['assessments'] })}
         >
-          {mutation.isPending ? 'Running baseline…' : 'Run assessment'}
-          <ArrowRight size={15} aria-hidden="true" />
+          <RefreshCw size={14} aria-hidden="true" /> Refresh
         </button>
-        {mutation.data ? <Status state={mutation.data.status} /> : null}
       </div>
 
-      {selection.error ? <ErrorPanel message={(selection.error as Error).message} /> : null}
-      {mutation.isPending ? <LoadingPanel message="Evaluating eligible inputs…" /> : null}
-      {error ? (
+      {query.isLoading ? <LoadingPanel message="Loading assessments…" /> : null}
+      {query.error ? (
         <ErrorPanel
-          title={error.status === 429 ? 'Rate limited' : 'Assessment failed'}
-          message={error.message}
-          requestId={error.requestId}
-          onRetry={() => selection.selectedId && mutation.mutate(selection.selectedId)}
+          title="Assessments unavailable"
+          message={(query.error as Error).message}
+          onRetry={() => void query.refetch()}
         />
       ) : null}
 
-      <div className="assessment-layout">
-        <AssessmentPanel
-          assessment={mutation.data}
-          catchmentName={selection.selected?.name}
-          onOpen={mutation.data ? `/assessments/${mutation.data.assessment_id}` : undefined}
-        />
+      {query.data && query.data.items.length === 0 ? (
+        <EmptyPanel
+          title="No assessments in this API process"
+          icon={<FlaskConical size={22} aria-hidden="true" />}
+          action={
+            <Link to="/assessments/new" className="text-link">
+              Request an assessment <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          }
+        >
+          <p>
+            Nothing has been assessed since this API started. An empty list is not a low-risk
+            result, and a restart clears process-memory records.
+          </p>
+        </EmptyPanel>
+      ) : null}
 
-        <aside className="assessment-aside">
-          <div className="assessment-aside__head">
-            <FlaskConical size={16} aria-hidden="true" />
-            <h2>What the backend evaluated</h2>
-          </div>
-          <ul className="plain-list">
-            <li>Inputs are read from the catchment observation endpoint.</li>
-            <li>Freshness windows: rainfall 3 h, forecast 6 h, river stage 2 h, soil moisture 24 h.</li>
-            <li>Only observed rainfall changes the band in v0.1.</li>
-            <li>Reason codes record which threshold or gap condition applied.</li>
-            <li>Every production and response keeps its provider and time metadata.</li>
-          </ul>
-          {mutation.data ? (
-            <p className="assessment-aside__note">
-              Assessment <code>{mutation.data.assessment_id}</code> is held in API process memory
-              only. It disappears on restart and is not private history.
-            </p>
-          ) : null}
-          <Notice tone="info" title="Persistence is not configured">
-            <p>
-              Saved history and subscriptions need Supabase persistence and Auth. Until that is
-              verified, no assessment is written to a database.
-            </p>
-          </Notice>
-        </aside>
-      </div>
+      {query.data && query.data.items.length > 0 ? (
+        <div className="table-scroll">
+          <table className="data-table data-table--assessments">
+            <caption className="sr-only">Assessments issued by this API process</caption>
+            <thead>
+              <tr>
+                <th scope="col">Issued</th>
+                <th scope="col">Catchment</th>
+                <th scope="col">Status</th>
+                <th scope="col">Model</th>
+                <th scope="col">Source</th>
+                <th scope="col">Storage</th>
+                <th scope="col">
+                  <span className="sr-only">Open evidence</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {query.data.items.map((assessment) => (
+                <tr key={assessment.assessment_id}>
+                  <th scope="row">
+                    <time dateTime={assessment.issued_at}>
+                      {formatTimestamp(assessment.issued_at)}
+                    </time>
+                    <code>{assessment.assessment_id.slice(0, 8)}</code>
+                  </th>
+                  <td>{assessment.catchment_id}</td>
+                  <td>
+                    <Status state={assessment.status} />
+                  </td>
+                  <td>
+                    <code>{assessment.model_version}</code>
+                  </td>
+                  <td>{assessment.is_demo ? <Status state="demo" /> : 'Live inputs'}</td>
+                  <td>
+                    {assessment.persisted
+                      ? assessment.persistence
+                      : `${assessment.persistence} (not durable)`}
+                  </td>
+                  <td>
+                    <Link
+                      to={`/assessments/${assessment.assessment_id}`}
+                      className="row-link"
+                      aria-label={`Open evidence for assessment ${assessment.assessment_id}`}
+                    >
+                      <ArrowRight size={15} aria-hidden="true" />
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      <Notice tone="info" title="How to get durable, private records">
+        <p>
+          Configure Supabase Auth and persistence, sign in, and request an assessment. The API
+          verifies your access token before writing, then returns only your own records through{' '}
+          <code>/api/v1/history</code>. This path is implemented but unverified against a live
+          project in this environment.
+        </p>
+      </Notice>
     </div>
   );
 }

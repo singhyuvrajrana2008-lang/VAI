@@ -3,6 +3,7 @@ import type { FormEvent, ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Eye, EyeOff, KeyRound, ShieldAlert } from 'lucide-react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../lib/auth';
+import { useDocumentTitle } from '../lib/hooks';
 import { safeRedirect } from '../lib/safeRedirect';
 import { Notice, Status } from '../components/Status';
 
@@ -23,6 +24,7 @@ function AuthShell({
   footer?: ReactNode;
 }) {
   const auth = useAuth();
+  useDocumentTitle(`${title} · RidgeWatch`);
   return (
     <div className="auth-shell">
       <div className="auth-shell__brand">
@@ -59,7 +61,7 @@ function AuthShell({
           ) : null}
           {children}
           <div className="auth-card__footer">
-            <Link to="/" className="text-link">
+            <Link to="/overview" className="text-link">
               <ArrowLeft size={13} aria-hidden="true" /> Continue in demo mode
             </Link>
           </div>
@@ -192,7 +194,7 @@ export function Login() {
           <dd>{auth.user.email}</dd>
         </dl>
         <div className="auth-actions">
-          <Link to="/" className="text-link">Continue to the dashboard</Link>
+          <Link to="/overview" className="text-link">Continue to the dashboard</Link>
           <button type="button" className="ghost-button" onClick={() => void auth.signOut()}>
             Sign out
           </button>
@@ -290,7 +292,7 @@ export function Signup() {
       setConfirmationSent(true);
       return;
     }
-    navigate('/', { replace: true });
+    navigate('/overview', { replace: true });
   };
 
   if (confirmationSent) {
@@ -476,7 +478,7 @@ export function ResetPassword() {
       ) : done ? (
         <Notice tone="info" title="Password updated">
           <p>Your password has been changed for {auth.user.email}. You remain signed in on this device.</p>
-          <p><Link to="/" className="text-link">Continue to the dashboard</Link></p>
+          <p><Link to="/overview" className="text-link">Continue to the dashboard</Link></p>
         </Notice>
       ) : (
         <form onSubmit={submit} noValidate>
@@ -533,7 +535,7 @@ export function AuthCallback() {
           <h2>Signed in as {auth.user.email}</h2>
           <p>Email confirmed: {auth.user.email_confirmed_at ? 'yes' : 'not yet reported'}.</p>
           <div className="auth-actions">
-            <Link to="/" className="text-link">Continue to the dashboard <ArrowRight size={13} aria-hidden="true" /></Link>
+            <Link to="/overview" className="text-link">Continue to the dashboard <ArrowRight size={13} aria-hidden="true" /></Link>
             <button type="button" className="ghost-button" onClick={() => void auth.signOut()}>Sign out</button>
           </div>
         </div>

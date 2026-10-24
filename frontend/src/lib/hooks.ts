@@ -1,8 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router';
 import { api } from './api';
 import type { Catchment } from './schemas';
+
+export function useDocumentTitle(title: string) {
+  useEffect(() => {
+    const previous = document.title;
+    document.title = title;
+    return () => {
+      document.title = previous;
+    };
+  }, [title]);
+}
 
 export function useCatchments() {
   return useQuery({

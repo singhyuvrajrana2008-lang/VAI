@@ -3,10 +3,11 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { useDocumentTitle } from '../lib/hooks';
 import { Status } from './Status';
 
 const OPERATIONS = [
-  ['/', 'Overview', Map],
+  ['/overview', 'Overview', Map],
   ['/catchments', 'Catchments', Gauge],
   ['/rainfall', 'Rainfall', CloudRain],
   ['/warnings', 'Official warnings', Bell],
@@ -23,16 +24,37 @@ const ACCOUNT = [
   ['/settings', 'Settings', Settings],
 ] as const;
 
+const TITLES: Array<[string, string]> = [
+  ['/overview', 'Overview'],
+  ['/catchments', 'Catchments'],
+  ['/rainfall', 'Rainfall'],
+  ['/warnings', 'Official warnings'],
+  ['/assessments/new', 'New assessment'],
+  ['/assessments', 'Assessments'],
+  ['/data-health', 'Source health'],
+  ['/methodology', 'Methodology'],
+  ['/history', 'History'],
+  ['/settings', 'Settings'],
+];
+
+function titleFor(pathname: string): string {
+  const match = TITLES.find(
+    ([path]) => pathname === path || (path !== '/assessments' && pathname.startsWith(`${path}/`)),
+  );
+  return match ? `${match[1]} · RidgeWatch` : 'RidgeWatch';
+}
+
 export function Layout() {
   const auth = useAuth();
   const location = useLocation();
   const health = useQuery({ queryKey: ['health'], queryFn: api.health, staleTime: 60_000 });
   const isDemo = health.data?.is_demo ?? health.data?.config.demo_fixtures;
+  useDocumentTitle(titleFor(location.pathname));
 
   return (
     <div className="shell">
       <aside className="rail">
-        <Link to="/" className="brand" aria-label="RidgeWatch overview">
+        <Link to="/overview" className="brand" aria-label="RidgeWatch overview">
           <span className="mark" aria-hidden="true">RW</span>
           <span>
             <b>RidgeWatch</b>
@@ -43,7 +65,7 @@ export function Layout() {
         <nav aria-label="Operations">
           <p className="rail__section">OPERATIONS</p>
           {OPERATIONS.map(([to, label, Icon]) => (
-            <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'active' : undefined)}>
+            <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : undefined)}>
               <Icon size={15} aria-hidden="true" />
               <span>{label}</span>
             </NavLink>
@@ -62,6 +84,10 @@ export function Layout() {
               <span>{label}</span>
             </NavLink>
           ))}
+          <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : undefined)}>
+            <ShieldAlert size={15} aria-hidden="true" />
+            <span>Public home</span>
+          </NavLink>
         </nav>
 
         <div className="rail__account">

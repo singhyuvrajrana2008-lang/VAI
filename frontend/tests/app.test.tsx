@@ -11,9 +11,12 @@ import { Warnings } from '../src/pages/Warnings';
 import { DataHealth } from '../src/pages/DataHealth';
 import { AssessmentDetail } from '../src/pages/AssessmentDetail';
 import { Login } from '../src/pages/Auth';
+import { Landing } from '../src/pages/Landing';
+import { Assessments } from '../src/pages/Assessments';
 import { NotFound } from '../src/pages/NotFound';
 import {
   assessment,
+  assessmentsList,
   catchments,
   health,
   jsonResponse,
@@ -31,6 +34,7 @@ function mockApi(overrides: { warnings?: unknown } = {}) {
     if (url.includes('/observations')) return jsonResponse(observations);
     if (url.includes('/warnings')) return jsonResponse(overrides.warnings ?? warnings);
     if (url.includes('/sources/status')) return jsonResponse(sources);
+    if (url.endsWith('/assessments')) return jsonResponse(assessmentsList);
     if (url.includes('/assessments/')) return jsonResponse(assessment);
     if (url.includes('/health')) return jsonResponse(health);
     throw new Error(`Unexpected request: ${url}`);
@@ -182,6 +186,44 @@ describe('auth boundary without configuration', () => {
     await waitFor(() => {
       expect(screen.getByText('Enter a valid email address.')).toBeTruthy();
     });
+  });
+});
+
+describe('public landing page', () => {
+  it('offers demo and auth entry points and states the prototype limits', async () => {
+    mockApi();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AuthProvider>
+          <RouterProvider
+            router={createMemoryRouter([{ path: '/', element: <Landing /> }], {
+              initialEntries: ['/'],
+            })}
+          />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByText(/Rainfall conditions, with the evidence attached/i),
+    ).toBeTruthy();
+    expect(screen.getAllByText('Explore the demo').length).toBe(2);
+    expect(screen.getByRole('link', { name: /Sign in/i })).toBeTruthy();
+    expect(screen.getByText('None — demo outlines only')).toBeTruthy();
+    expect(screen.getByText('Not evaluated')).toBeTruthy();
+    expect(screen.queryByText(/\d+% (accuracy|recall|precision)/i)).toBeNull();
+  });
+});
+
+describe('assessments list', () => {
+  it('labels process-memory records as not private history', async () => {
+    mockApi();
+    renderInShell('/assessments', <Assessments />);
+
+    expect(await screen.findByText(/These records are not private history/i)).toBeTruthy();
+    expect(screen.getByText('demo-sector-a')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /New assessment/i })).toBeTruthy();
+    expect(screen.getByText(/1 record in this API process/i)).toBeTruthy();
   });
 });
 

@@ -140,6 +140,16 @@ export const assessment = {
     'Experimental research output. Not an official warning, forecast or evacuation instruction.',
 };
 
+export const assessmentsList = {
+  items: [assessment],
+  count: 1,
+  persistence: 'memory',
+  scope: 'api_process_not_user_owned',
+  is_demo: true,
+  message:
+    'These records live in this API process only. They are not user-owned history, are not private, and disappear when the API restarts.',
+};
+
 const source = (
   capability: string,
   label: string,

@@ -28,14 +28,17 @@ These are public. Never add a service-role key or any `VITE_`-prefixed secret.
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Map-first overview: source strip, catchment inspector, warnings separate from assessment |
+| `/` | Public entry: Explore Demo, Sign in, Create account, honest prototype scope |
+| `/overview` | Map-first console: source strip, catchment inspector, warnings separate from assessment |
 | `/catchments`, `/catchments/:id` | Registry with search, provenance and validation |
 | `/rainfall` | Observed vs forecast, chart with units/UTC/gaps, provenance tables |
 | `/warnings` | Chronological official-warning log; unavailable is not an all-clear |
-| `/assessments`, `/assessments/:id` | Run the baseline; read the full evidence report |
+| `/assessments` | Assessments issued by this API process, explicitly not private history |
+| `/assessments/new` | Run the baseline |
+| `/assessments/:id` | Full evidence report |
 | `/data-health` | Dense capability matrix and configuration presence |
 | `/methodology` | Baseline rules, unvalidated thresholds, evaluation status |
-| `/history` | Account-scoped; honest unavailable state without persistence |
+| `/history` | Account-scoped; sends the session bearer token; handles 401/503 honestly |
 | `/settings` | Real account actions and presence-only configuration |
 | `/login`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback` | Supabase Auth flows; no simulated user |
 | `*` | Not-found with a safe route back |
@@ -48,7 +51,7 @@ npm test
 npm run build
 ```
 
-Last verified (Node 24.21.0): typecheck passed, **26 tests passed** (18 unit + 8 jsdom page-rendering tests), production build succeeded. The rendering tests mock the API, mount the real pages with React Query and the router, and exercise the assessment click path, warning semantics, auth configuration state and 404 routing.
+Last verified (Node 24.21.0): typecheck passed, **31 tests passed** (21 unit + 10 jsdom page-rendering tests), production build succeeded. The rendering tests mock the API, mount the real pages with React Query and the router, and exercise the landing entry points, assessment click path, assessments list scope warning, warning semantics, auth configuration state and 404 routing. Bearer-token forwarding for assessments and history is unit-tested.
 
 ## Data honesty rules encoded in the UI
 

@@ -129,3 +129,63 @@ describe('api client', () => {
     expect(result.status).toBe('low');
   });
 });
+
+describe('authenticated history requests', () => {
+  it('sends the Supabase access token as a bearer header', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ items: [], count: 0, is_demo: false, persistence: 'supabase' }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await api.history('access-token-123');
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url.endsWith('/history')).toBe(true);
+    expect((init.headers as Record<string, string>).Authorization).toBe(
+      'Bearer access-token-123',
+    );
+    expect(result.persistence).toBe('supabase');
+  });
+
+  it('does not send an Authorization header without a token', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ items: [], count: 0, is_demo: true, persistence: 'memory' }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await api.history();
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined();
+  });
+
+  it('forwards a token when requesting a persisted assessment', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        assessment_id: 'a1',
+        catchment_id: 'demo-sector-a',
+        status: 'low',
+        score: null,
+        score_semantics: 'categorical_only_no_calibrated_index',
+        model_version: 'rainfall-accumulation-baseline-v0.1',
+        issued_at: '2026-06-15T06:00:00Z',
+        is_demo: true,
+        data_coverage: {
+          required_inputs: 1,
+          available_inputs: 1,
+          missing: [],
+          stale: [],
+          supporting_missing: [],
+        },
+        reason_codes: [],
+        inputs: [],
+        sources: [],
+        warnings: [],
+        persisted: true,
+        persistence: 'supabase',
+        disclaimer: 'Experimental research output.',
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await api.assess('demo-sector-a', 'token-9');
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer token-9');
+    expect(init.method).toBe('POST');
+  });
+});
