@@ -44,7 +44,7 @@ These are candidates requiring verification in the deployment environment, not c
 - Copernicus DEM GLO-30: https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM
 - CWC / India-WRIS / local gauge feeds: investigate availability, rights and latency before depending on them.
 
-See `docs/DATA_SOURCES.md`, `docs/EVALUATION.md` and Manus's forthcoming `docs/DATA_FEASIBILITY_REPORT.md`.
+See `docs/DATA_SOURCES.md`, `docs/EVALUATION.md`, `docs/AGENT_BUILD_RUNBOOK.md` and Manus's forthcoming `docs/DATA_FEASIBILITY_REPORT.md`.
 
 ## Repository map
 - `AGENTS.md` — shared rules for all agents.
@@ -60,11 +60,14 @@ See `docs/DATA_SOURCES.md`, `docs/EVALUATION.md` and Manus's forthcoming `docs/D
 - `prompts/05-integration-qa.md` — integration tests and release QA.
 - `prompts/06-visual-refinement.md` — visual differentiation.
 - `prompts/07-github-shared-repo-workflow.md` — collaboration.
+- `prompts/08-figma-mvp-build.md` — complete Figma Make frontend build prompt.
+- `prompts/09-manus-finish-mvp.md` — backend, data feasibility, integration and evaluation build prompt.
+- `docs/AGENT_BUILD_RUNBOOK.md` — coordinated parallel execution plan.
 - `supabase/migrations/` — versioned database schema.
 - `.env.example` — variable names only; never put secrets here.
 
 ## Setup status
-The backend foundation exists in PR #4 but has not yet been merged into `main`; it must be reviewed and integrated first. The full application, live provider connectors and validated flood-prediction model are not yet complete. Update setup instructions only after commands have actually been tested.
+The backend foundation exists in PR #4 and remains separate from `main` until reviewed/merged. See `docs/AGENT_BUILD_RUNBOOK.md` for how Figma and Manus should work on separate paths in the same repository. The full application, live provider connectors and validated flood-prediction model are not yet complete. Update setup instructions only after commands have actually been tested.
 
 ## Collaboration
 - `main` is the reviewed source of truth.
