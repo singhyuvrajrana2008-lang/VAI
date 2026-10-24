@@ -206,6 +206,15 @@ class AssessmentResponse(APIModel):
     disclaimer: str
 
 
+class AssessmentListResponse(APIModel):
+    items: list[AssessmentResponse]
+    count: int
+    persistence: str
+    scope: str
+    is_demo: bool
+    message: str
+
+
 class HistoryResponse(APIModel):
     items: list[AssessmentResponse]
     count: int

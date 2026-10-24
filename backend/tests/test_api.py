@@ -266,3 +266,165 @@ def test_missing_assessment_input_never_becomes_zero_rainfall():
     assert empty.data_coverage.missing == ["rainfall"]
     assert "INSUFFICIENT_REQUIRED_INPUTS" in empty.reason_codes
     assert empty.is_demo is False
+
+
+# --- Assessment list, authenticated history and persistence behaviour ---
+
+from app.main import app as api_app  # noqa: E402
+from app.services.supabase import (  # noqa: E402
+    SupabaseAuthError,
+    SupabaseServiceError,
+    get_gateway,
+)
+
+
+def configure_supabase(monkeypatch) -> None:
+    monkeypatch.setenv("SUPABASE_URL", "https://project.supabase.co")
+    monkeypatch.setenv("SUPABASE_ANON_KEY", "anon-placeholder")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service-placeholder")
+    get_settings.cache_clear()
+
+
+class FakeGateway:
+    def __init__(self, *, auth_error=False, save_error=False, read_error=False, items=None):
+        self.auth_error = auth_error
+        self.save_error = save_error
+        self.read_error = read_error
+        self.items = items or []
+        self.saved: list[tuple[str, object]] = []
+
+    def verify_user(self, token: str) -> str:
+        if self.auth_error:
+            raise SupabaseAuthError("rejected")
+        if token != "token-1":
+            raise SupabaseAuthError("unknown token")
+        return "user-123"
+
+    def save_assessment(self, user_id: str, assessment) -> None:
+        if self.save_error:
+            raise SupabaseServiceError("write rejected")
+        self.saved.append((user_id, assessment))
+
+    def list_history(self, user_id: str, limit: int = 50):
+        if self.read_error:
+            raise SupabaseServiceError("read failed")
+        return [assessment for owner, assessment in self.saved if owner == user_id][:limit]
+
+
+def override_gateway(fake) -> None:
+    api_app.dependency_overrides[get_gateway] = lambda: fake
+
+
+def test_assessment_list_is_process_memory_and_not_private_history():
+    empty = client.get("/api/v1/assessments").json()
+    assert empty["count"] == 0
+    assert empty["scope"] == "api_process_not_user_owned"
+    assert "not user-owned history" in empty["message"]
+
+    created = client.post("/api/v1/catchments/demo-sector-b/assessments", json={}).json()
+    listed = client.get("/api/v1/assessments").json()
+    assert listed["count"] == 1
+    assert listed["items"][0]["assessment_id"] == created["assessment_id"]
+    assert listed["persistence"] == "memory"
+    assert listed["is_demo"] is True
+
+
+def test_history_requires_a_bearer_token_when_persistence_is_configured(monkeypatch):
+    configure_supabase(monkeypatch)
+    override_gateway(FakeGateway())
+
+    missing = client.get("/api/v1/history")
+    assert missing.status_code == 401
+    assert "sign in" in missing.json()["detail"].lower()
+
+    malformed = client.get("/api/v1/history", headers={"Authorization": "Basic abc"})
+    assert malformed.status_code == 401
+
+    rejected = client.get(
+        "/api/v1/history", headers={"Authorization": "Bearer not-valid"}
+    )
+    assert rejected.status_code == 401
+
+
+def test_history_is_owner_scoped_and_returns_persisted_assessments(monkeypatch):
+    configure_supabase(monkeypatch)
+    fake = FakeGateway()
+    override_gateway(fake)
+
+    created = client.post(
+        "/api/v1/catchments/demo-sector-a/assessments",
+        json={},
+        headers={"Authorization": "Bearer token-1"},
+    ).json()
+    assert created["persisted"] is True
+    assert created["persistence"] == "supabase"
+    assert fake.saved and fake.saved[0][0] == "user-123"
+
+    history = client.get(
+        "/api/v1/history", headers={"Authorization": "Bearer token-1"}
+    )
+    assert history.status_code == 200
+    payload = history.json()
+    assert payload["count"] == 1
+    assert payload["persistence"] == "supabase"
+    assert payload["items"][0]["assessment_id"] == created["assessment_id"]
+
+
+def test_persistence_write_failure_does_not_claim_the_record_was_saved(monkeypatch):
+    configure_supabase(monkeypatch)
+    override_gateway(FakeGateway(save_error=True))
+
+    result = client.post(
+        "/api/v1/catchments/demo-sector-a/assessments",
+        json={},
+        headers={"Authorization": "Bearer token-1"},
+    )
+    assert result.status_code == 200
+    payload = result.json()
+    assert payload["persisted"] is False
+    assert payload["persistence"] == "supabase_write_failed"
+    assert payload["status"] == "high"
+
+
+def test_invalid_token_does_not_downgrade_to_anonymous_success(monkeypatch):
+    configure_supabase(monkeypatch)
+    override_gateway(FakeGateway(auth_error=True))
+
+    result = client.post(
+        "/api/v1/catchments/demo-sector-a/assessments",
+        json={},
+        headers={"Authorization": "Bearer token-1"},
+    )
+    assert result.status_code == 401
+    assert "expired" in result.json()["detail"].lower()
+
+
+def test_history_read_failure_is_a_sanitised_503(monkeypatch):
+    configure_supabase(monkeypatch)
+    override_gateway(FakeGateway(read_error=True))
+
+    result = client.get(
+        "/api/v1/history", headers={"Authorization": "Bearer token-1"}
+    )
+    assert result.status_code == 503
+    assert "could not be read" in result.json()["detail"].lower()
+    assert "token" not in result.json()["detail"].lower()
+
+
+def test_anonymous_assessment_still_works_with_persistence_configured(monkeypatch):
+    configure_supabase(monkeypatch)
+    override_gateway(FakeGateway())
+
+    result = client.post("/api/v1/catchments/demo-sector-a/assessments", json={})
+    assert result.status_code == 200
+    assert result.json()["persisted"] is False
+    assert result.json()["persistence"] == "memory"
+
+
+def test_assessment_list_is_not_exposed_in_live_mode(monkeypatch):
+    monkeypatch.setenv("RIDGEWATCH_MODE", "live")
+    get_settings.cache_clear()
+
+    result = client.get("/api/v1/assessments")
+    assert result.status_code == 403
+    assert "demo mode" in result.json()["detail"].lower()

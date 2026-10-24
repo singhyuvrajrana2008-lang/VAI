@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     demo_fixtures_enabled: bool = True
     provider_timeout_seconds: float = Field(default=5.0, gt=0, le=30)
     assessment_rate_limit_per_minute: int = Field(default=30, ge=1, le=600)
+    supabase_timeout_seconds: float = Field(default=8.0, gt=0, le=30)
 
     cors_origins: str = Field(
         default=DEFAULT_CORS_ORIGINS,

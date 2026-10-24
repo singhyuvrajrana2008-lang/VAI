@@ -112,8 +112,9 @@ def build_sources_status(settings: Settings, is_demo: bool) -> SourcesStatusResp
             ),
             is_demo=False,
             message=(
-                "Supabase credentials are present, but persistence is not wired or "
-                "verified in this build. Assessments are kept in process memory only."
+                "Supabase credentials are present. Persistence code exists but has not "
+                "been verified against a live project, so saved history is not yet "
+                "trustworthy; memory-only records remain separate."
                 if settings.persistence_configured
                 else "Supabase is not configured. Assessments are kept in process memory "
                 "and are lost on restart."

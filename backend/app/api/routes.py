@@ -5,14 +5,16 @@ this build. Demo mode serves explicitly labelled synthetic fixtures. Live mode
 returns empty, unavailable states rather than substituting values.
 """
 
+import logging
 from collections import OrderedDict, deque
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 
 from app import fixtures
 from app.config import Settings, get_settings
 from app.schemas.api import (
+    AssessmentListResponse,
     AssessmentRequest,
     AssessmentResponse,
     Catchment,
@@ -29,7 +31,14 @@ from app.schemas.api import (
 )
 from app.services.risk import evaluate_assessment
 from app.services.sources import build_sources_status
+from app.services.supabase import (
+    SupabaseAuthError,
+    SupabaseGateway,
+    SupabaseServiceError,
+    get_gateway,
+)
 
+logger = logging.getLogger("ridgewatch.api")
 router = APIRouter(prefix="/api/v1")
 
 API_VERSION = "0.2.0"
@@ -59,6 +68,10 @@ class AssessmentStore:
     def get(self, assessment_id: str) -> AssessmentResponse | None:
         return self._items.get(assessment_id)
 
+    def list_recent(self, limit: int) -> list[AssessmentResponse]:
+        items = list(self._items.values())
+        return list(reversed(items))[:limit]
+
     def __len__(self) -> int:
         return len(self._items)
 
@@ -69,6 +82,19 @@ _request_times: dict[str, deque[float]] = {}
 
 def settings_dep() -> Settings:
     return get_settings()
+
+
+def _bearer_token(authorization: str | None) -> str | None:
+    if not authorization:
+        return None
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header must use the Bearer scheme.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token.strip()
 
 
 def _enforce_rate_limit(request: Request, settings: Settings) -> None:
@@ -129,7 +155,7 @@ def _config_status(settings: Settings) -> ConfigStatus:
     return ConfigStatus(
         demo_mode=settings.demo_mode,
         demo_fixtures=settings.demo_active,
-        persistence="configured_not_connected" if settings.persistence_configured else "unavailable",
+        persistence="configured_not_verified" if settings.persistence_configured else "unavailable",
         authentication="configured_not_verified" if settings.auth_configured else "unavailable",
         external_sources=external,
     )
@@ -144,7 +170,7 @@ def health(settings: Settings = Depends(settings_dep)) -> HealthResponse:
         environment=settings.environment,
         is_demo=settings.demo_active,
         persistence=(
-            "configured_not_connected" if settings.persistence_configured else "unavailable"
+            "configured_not_verified" if settings.persistence_configured else "unavailable"
         ),
         authentication=(
             "configured_not_verified" if settings.auth_configured else "unavailable"
@@ -266,7 +292,9 @@ def assess(
     catchment_id: str,
     payload: AssessmentRequest,
     request: Request,
+    authorization: str | None = Header(default=None),
     settings: Settings = Depends(settings_dep),
+    gateway: SupabaseGateway | None = Depends(get_gateway),
 ) -> AssessmentResponse:
     _catchment_or_404(catchment_id, settings)
     _enforce_rate_limit(request, settings)
@@ -284,8 +312,69 @@ def assess(
         is_demo=settings.demo_active,
         now=payload.requested_at or datetime.now(timezone.utc),
     )
+
+    token = _bearer_token(authorization)
+    if token and gateway is not None:
+        try:
+            user_id = gateway.verify_user(token)
+        except SupabaseAuthError as error:
+            raise HTTPException(
+                status_code=401,
+                detail="Access token is invalid or expired. Sign in again.",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from error
+        except SupabaseServiceError:
+            # Never pretend the record was saved. The assessment itself remains valid.
+            result = result.model_copy(update={"persistence": "supabase_verify_failed"})
+        else:
+            try:
+                gateway.save_assessment(user_id, result)
+            except SupabaseServiceError:
+                logger.warning(
+                    "Assessment persistence failed catchment=%s", catchment_id
+                )
+                result = result.model_copy(update={"persistence": "supabase_write_failed"})
+            else:
+                result = result.model_copy(
+                    update={"persisted": True, "persistence": "supabase"}
+                )
+
     assessment_store.save(result)
     return result
+
+
+@router.get(
+    "/assessments",
+    response_model=AssessmentListResponse,
+    summary="Assessments issued by this API process (not user-owned history)",
+)
+def list_assessments(
+    limit: int = Query(default=20, ge=1, le=100),
+    settings: Settings = Depends(settings_dep),
+) -> AssessmentListResponse:
+    if not settings.demo_active:
+        # In live mode, process-memory records may contain live operational data and
+        # must not be exposed to every API caller. Authenticated history is the path.
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Process-memory assessment listing is available only in demo mode. "
+                "Use authenticated history for owner-scoped records."
+            ),
+        )
+    items = assessment_store.list_recent(limit)
+    return AssessmentListResponse(
+        items=items,
+        count=len(items),
+        persistence="memory",
+        scope="api_process_not_user_owned",
+        is_demo=any(item.is_demo for item in items) or settings.demo_active,
+        message=(
+            "These records live in this API process only. They are not user-owned "
+            "history, are not private, and disappear when the API restarts. Sign in "
+            "with Supabase persistence configured to store owner-scoped history."
+        ),
+    )
 
 
 @router.get(
@@ -316,14 +405,57 @@ def sources_status(settings: Settings = Depends(settings_dep)) -> SourcesStatusR
 @router.get(
     "/history",
     response_model=HistoryResponse,
-    summary="Authenticated assessment history (requires verified persistence)",
+    summary="Authenticated, owner-scoped assessment history",
 )
-def history(settings: Settings = Depends(settings_dep)) -> HistoryResponse:
-    raise HTTPException(
-        status_code=503,
-        detail=(
-            "Assessment history requires a verified Supabase persistence and auth "
-            "connection. No durable private history is stored by this build."
-        ),
-        headers={"X-RidgeWatch-Status": "persistence_unavailable"},
+def history(
+    settings: Settings = Depends(settings_dep),
+    gateway: SupabaseGateway | None = Depends(get_gateway),
+    authorization: str | None = Header(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+) -> HistoryResponse:
+    if gateway is None or not settings.persistence_configured:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Assessment history requires Supabase persistence and Auth to be "
+                "configured and verified. No durable private history is available."
+            ),
+            headers={"X-RidgeWatch-Status": "persistence_unavailable"},
+        )
+
+    token = _bearer_token(authorization)
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Sign in to read your assessment history.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        user_id = gateway.verify_user(token)
+    except SupabaseAuthError as error:
+        raise HTTPException(
+            status_code=401,
+            detail="Access token is invalid or expired. Sign in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from error
+    except SupabaseServiceError as error:
+        raise HTTPException(
+            status_code=503,
+            detail="The authentication service could not be reached. History is unavailable.",
+        ) from error
+
+    try:
+        items = gateway.list_history(user_id, limit)
+    except SupabaseServiceError as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Persisted history could not be read. Nothing has been inferred from the failure.",
+        ) from error
+
+    return HistoryResponse(
+        items=items,
+        count=len(items),
+        is_demo=any(item.is_demo for item in items),
+        persistence="supabase",
     )
