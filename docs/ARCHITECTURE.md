@@ -97,7 +97,16 @@ Supabase is the persistence layer, not the main compute engine. Use PostGIS for 
 - LLM failure: preserve the actual assessment; hide the generated explanation or use a fixed factual template.
 - All demo responses carry is_demo=true at the API boundary.
 
-## 10. Security
+## 10. Authentication and account flow
+
+- Use Supabase Auth as the identity provider; frontend routes should include `/login`, `/signup`, `/forgot-password` and `/reset-password`.
+- The frontend may use `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (or a Supabase publishable key). Never expose the service-role key in the browser.
+- Support session restoration, sign-out, password recovery and email-confirmation states according to the configured Supabase project.
+- Public dashboard/demo access may work without login. Private account, profile, saved-history and subscription operations require a real authenticated session and owner-scoped authorization.
+- If Supabase Auth is unconfigured, offer a visibly labelled demo mode rather than simulated credentials or a fake logged-in user.
+- When the backend uses privileged database credentials, it must verify the caller's Supabase access token and enforce ownership; it must not trust user IDs supplied in request bodies.
+
+## 11. Security
 - Never expose Supabase service-role key or provider secrets to frontend.
 - Restrict browser Google Maps keys by website and API.
 - Use RLS and test with two users.
