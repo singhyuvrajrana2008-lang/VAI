@@ -11,6 +11,10 @@
 
 Read `docs/DATA_FEASIBILITY_REPORT.md` before treating any provider as usable.
 
+## Branch and integration status
+
+This work lives on `feat/ridgewatch-full-mvp`, branched from `main`. It **integrates the content of the two open foundation PRs** — #4 (`feat/backend-foundation`) and #5 (`feat/ridgewatch-frontend`) — rather than duplicating them. Review and merge this branch first; merging #4 or #5 afterwards would conflict on the same paths. No PR exists for this branch yet (created and pushed from a cloud workspace without PR permissions).
+
 ## What actually works
 
 | Area | State |
@@ -171,9 +175,9 @@ npm test
 npm run build
 ```
 
-Result: typecheck passed, **18 unit tests passed** (formatting, redirect safety, GeoJSON projection, API error and schema handling), production build succeeded.
+Result: typecheck passed, **26 tests passed** (formatting, redirect safety, GeoJSON projection, API error/schema handling, plus 8 jsdom rendering tests that mount the overview, warnings, data-health, evidence, auth and not-found pages against mocked API responses and click through an assessment), production build succeeded.
 
-Manual HTTP verification against the running dev servers: health, catchments, observations/proxy, assessment bands, warnings, sources, CORS preflight, unknown-host rejection (403), SPA deep routes (200). Browser rendering, keyboard traversal and real Supabase sign-in were **not** verified in this environment — see `docs/DATA_FEASIBILITY_REPORT.md` § Verification.
+Manual HTTP verification against the running dev servers: health, catchments, observations/proxy, assessment bands, warnings, sources, CORS preflight, unknown-host rejection (403), SPA deep routes (200). A real browser run was **not possible** — Chromium requires system libraries that cannot be installed without root in this environment — so pixel layout, keyboard traversal and live Supabase sign-in remain unverified (see `docs/DATA_FEASIBILITY_REPORT.md`).
 
 ## Supabase setup (when you are ready)
 

@@ -48,7 +48,7 @@ npm test
 npm run build
 ```
 
-Last verified (Node 24.21.0): typecheck passed, 18 unit tests passed, production build succeeded.
+Last verified (Node 24.21.0): typecheck passed, **26 tests passed** (18 unit + 8 jsdom page-rendering tests), production build succeeded. The rendering tests mock the API, mount the real pages with React Query and the router, and exercise the assessment click path, warning semantics, auth configuration state and 404 routing.
 
 ## Data honesty rules encoded in the UI
 
